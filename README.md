@@ -27,10 +27,8 @@
   <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=whispin&layout=compact&theme=radical" alt="Top Langs" width="300"/>
 </p>
 
-## 🌐 Connect with Me
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/your-link)
-[![Email](https://img.shields.io/badge/Email-D14836?style=flat-square&logo=gmail&logoColor=white)](mailto:your.email@example.com)
+
 
 ---
 
