@@ -9,8 +9,5 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(__dirname, 'index.html')
     }
-  },
-  server: {
-    historyApiFallback: true // 注意：这是 express 中的用法，vite 内部并不使用 express
   }
 });
