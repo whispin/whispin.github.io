@@ -559,19 +559,22 @@ const changeDirectory = async (path: string) => {
   }
 }
 
-// 键盘事件处理
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
-    executeCommand(terminalInput.value)
-    terminalInput.value = ''
-  } else if (event.key === 'ArrowUp') {
-    event.preventDefault()
+// 处理命令执行
+const handleCommand = () => {
+  executeCommand(terminalInput.value)
+  terminalInput.value = ''
+}
+
+// 历史记录导航
+const navigateHistory = (direction: number) => {
+  if (direction === -1) {
+    // 向上箭头 - 显示更早的命令
     if (historyIndex.value < commandHistory.value.length - 1) {
       historyIndex.value++
       terminalInput.value = commandHistory.value[commandHistory.value.length - 1 - historyIndex.value]
     }
-  } else if (event.key === 'ArrowDown') {
-    event.preventDefault()
+  } else if (direction === 1) {
+    // 向下箭头 - 显示更新的命令
     if (historyIndex.value > 0) {
       historyIndex.value--
       terminalInput.value = commandHistory.value[commandHistory.value.length - 1 - historyIndex.value]
@@ -580,6 +583,12 @@ const handleKeydown = (event: KeyboardEvent) => {
       terminalInput.value = ''
     }
   }
+}
+
+// 处理输入事件
+const handleInput = () => {
+  // 重置历史记录索引当用户开始输入时
+  historyIndex.value = -1
 }
 
 // 保持输入框聚焦
