@@ -13,8 +13,8 @@ export default defineConfig({
     assetsInlineLimit: Infinity,
     rollupOptions: {
       output: {
-        inlineDynamicImports: true,
-        manualChunks: () => 'everything.js',
+        inlineDynamicImports: true
+      
       },
     },
   },
