@@ -28,6 +28,8 @@ interface TerminalLine {
 
 const terminalOutput = ref<TerminalLine[]>([])
 const inputRef = ref<HTMLInputElement>()
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+const currentTrack = ref<any | null>(null)
 
 // 虚拟文件系统
 interface FileSystemItem {
@@ -153,15 +155,7 @@ onMounted(() => {
 // 计算当前主题样式
 const themeClasses = computed(() => themes[currentTheme.value as keyof typeof themes])
 
-// ASCII艺术字
-const asciiArt = [
-  "██╗███╗   ██╗██████╗ ███████╗██╗  ██╗",
-  "██║████╗  ██║██╔══██╗██╔════╝╚██╗██╔╝",
-  "██║██╔██╗ ██║██║  ██║█████╗   ╚███╔╝ ",
-  "██║██║╚██╗██║██║  ██║██╔══╝   ██╔██╗ ",
-  "██║██║ ╚████║██████╔╝███████╗██╔╝ ██╗",
-  "╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝"
-]
+
 
 // 打字机效果
 const typeText = async (text: string, delay = 30) => {
@@ -181,11 +175,6 @@ const typeText = async (text: string, delay = 30) => {
 
 // 显示启动信息
 const showStartupInfo = async () => {
-  // ASCII艺术字
-  for (const line of asciiArt) {
-    terminalOutput.value.push({ type: 'info', content: '' })
-    await typeText(line, 20)
-  }
 
   terminalOutput.value.push({ type: 'info', content: '' })
   terminalOutput.value.push({ type: 'info', content: '' })
@@ -225,7 +214,7 @@ const getCurrentTime = () => {
 const availableCommands = [
   'help', 'clear', 'cls', 'ls', 'cat', 'theme', 'gh', 'about',
   'projects', 'contact', 'echo', 'date', 'time', 'pwd', 'cd',
-  'mkdir', 'touch'
+  'mkdir', 'touch', 'music'
 ]
 
 // Tab自动补全处理
@@ -327,10 +316,7 @@ const executeCommand = async (input: string) => {
       await echoText(args.join(' '))
       break
     case 'music':
-      await playMusic()
-      break
-    case 'tools':
-      await showTools()
+      await playMusic(args)
       break
     default:
       terminalOutput.value.push({
@@ -357,8 +343,7 @@ const showHelp = async () => {
     '  whoami     - Display current user',
     '  date       - Show current date and time',
     '  echo <text> - Display text',
-    '  music      - Play a playlist',
-    '  tools      - Open tools page'
+    '  music [play|stop|next|volume <0-100>] - Play light music',
   ]
 
   for (const line of helpText) {
@@ -529,20 +514,71 @@ const echoText = async (text: string) => {
   await typeText(text || '')
 }
 
-const playMusic = async () => {
+const fetchAndPlayRandomTrack = async () => {
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('🎵 Now playing: Coding Beats Playlist')
-  terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('♪ Track: "Smooth Operator" - Lo-fi Hip Hop')
+  await typeText('Fetching music...', 20)
+
+  try {
+    const clientId = '3e247de8'
+    const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=50&tags=lounge,chillout&order=popularity_month`)
+    const data = await response.json()
+
+    if (data.results && data.results.length > 0) {
+      const track = data.results[Math.floor(Math.random() * data.results.length)]
+      currentTrack.value = track
+      if (audioPlayer.value) {
+        audioPlayer.value.src = track.audio
+        await audioPlayer.value.play()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        await typeText(`🎵 Now playing: ${track.name} - ${track.artist_name}`, 20)
+      }
+    } else {
+      terminalOutput.value.push({ type: 'error', content: 'Could not find any suitable music, please try again later.' })
+    }
+  } catch (error) {
+    console.error('Error fetching music:', error)
+    terminalOutput.value.push({ type: 'error', content: 'Failed to fetch music. Please check your network connection.' })
+  }
 }
 
-const showTools = async () => {
-  terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Opening tools page...')
-  setTimeout(() => {
-    window.open('https://coley.software/tools', '_blank')
-  }, 1000)
+const playMusic = async (args: string[]) => {
+  const subCommand = args[0] || 'play'
+
+  switch (subCommand) {
+    case 'play':
+    case 'next':
+      await fetchAndPlayRandomTrack()
+      break
+    case 'stop':
+      if (audioPlayer.value && audioPlayer.value.src) {
+        audioPlayer.value.pause()
+        audioPlayer.value.src = ''
+        currentTrack.value = null
+        terminalOutput.value.push({ type: 'output', content: '⏹️ Music stopped' })
+      } else {
+        terminalOutput.value.push({ type: 'error', content: 'No music is playing' })
+      }
+      break
+    case 'volume':
+      if (!audioPlayer.value || !audioPlayer.value.src) {
+        terminalOutput.value.push({ type: 'error', content: 'No music is playing' })
+        return
+      }
+      const volume = parseInt(args[1], 10)
+      if (!isNaN(volume) && volume >= 0 && volume <= 100) {
+        audioPlayer.value.volume = volume / 100
+        terminalOutput.value.push({ type: 'output', content: `🔊 Volume set to: ${volume}%` })
+      } else {
+        terminalOutput.value.push({ type: 'error', content: 'Usage: music volume <0-100>' })
+      }
+      break
+    default:
+      terminalOutput.value.push({ type: 'error', content: `Unknown command: 'music ${subCommand}'` })
+      break
+  }
 }
+
+
 
 const changeDirectory = async (path: string) => {
   if (!path) {
@@ -655,6 +691,7 @@ const handleTerminalClick = () => {
       </div>
     </div>
   </div>
+  <audio ref="audioPlayer" hidden></audio>
 </template>
 
 <style scoped>

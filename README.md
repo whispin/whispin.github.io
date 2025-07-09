@@ -1,8 +1,5 @@
 <h1 align="center">Hi there 👋, I'm whispin!</h1>
 
-<p align="center">
-  <img src="https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif" width="300" alt="Coding Gif"/>
-</p>
 
 ## 🚀 About Me
 
