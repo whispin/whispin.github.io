@@ -30,6 +30,7 @@ const terminalOutput = ref<TerminalLine[]>([])
 const inputRef = ref<HTMLInputElement>()
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 const currentTrack = ref<any | null>(null)
+const particlesRef = ref<HTMLElement>()
 
 // 窗口大小调节
 const windowSize = ref({
@@ -160,7 +161,96 @@ onMounted(() => {
   nextTick(() => {
     inputRef.value?.focus()
   })
+  
+  // 初始化粒子特效
+  initParticles()
 })
+
+// 粒子特效初始化
+const initParticles = () => {
+  if (!particlesRef.value) return
+
+  // 根据设备性能调整粒子数量
+  const isMobile = window.innerWidth <= 640
+  const particleCount = isMobile ? 25 : 50
+  const fragment = document.createDocumentFragment()
+
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div')
+    
+    // 完全随机的位置分布，包括边缘区域
+    const distributionType = Math.random()
+    let x, y
+    
+    if (distributionType < 0.7) {
+      // 70% 在主要区域随机分布
+      x = Math.random() * 100
+      y = Math.random() * 100
+    } else if (distributionType < 0.85) {
+      // 15% 在边缘区域
+      if (Math.random() < 0.5) {
+        x = Math.random() < 0.5 ? Math.random() * 10 : Math.random() * 10 + 90
+        y = Math.random() * 100
+      } else {
+        x = Math.random() * 100
+        y = Math.random() < 0.5 ? Math.random() * 10 : Math.random() * 10 + 90
+      }
+    } else {
+      // 15% 在角落区域
+      x = Math.random() < 0.5 ? Math.random() * 15 : Math.random() * 15 + 85
+      y = Math.random() < 0.5 ? Math.random() * 15 : Math.random() * 15 + 85
+    }
+    
+    particle.style.left = x + '%'
+    particle.style.top = y + '%'
+    
+    // 更大的随机大小范围，创造更明显的大小差异
+    const sizeType = Math.random()
+    let size, className
+    if (sizeType < 0.5) {
+      // 50% 小粒子
+      size = Math.random() * 2.5 + 0.5
+      className = 'particle particle-small'
+    } else if (sizeType < 0.8) {
+      // 30% 中等粒子  
+      size = Math.random() * 4 + 2.5
+      className = 'particle particle-medium'
+    } else {
+      // 20% 大粒子
+      size = Math.random() * 6 + 4
+      className = 'particle particle-large'
+    }
+    
+    particle.className = className
+    particle.style.width = size + 'px'
+    particle.style.height = size + 'px'
+    
+    // 随机透明度，让粒子更有层次感
+    const opacity = Math.random() * 0.7 + 0.3
+    particle.style.opacity = opacity.toString()
+    
+    // 更大范围的随机动画延迟
+    particle.style.animationDelay = Math.random() * 20 + 's'
+    
+    // 更大范围的随机动画持续时间
+    const baseDuration = isMobile ? 40 : 20 // 移动设备动画更慢
+    particle.style.animationDuration = (Math.random() * 30 + baseDuration) + 's'
+    
+    // 随机动画方向
+    const direction = Math.random() > 0.5 ? 'normal' : 'reverse'
+    particle.style.animationDirection = direction
+    
+    // 随机发光动画延迟和持续时间
+    const glowDelay = Math.random() * 10 + 's'
+    const glowDuration = (Math.random() * 8 + 4) + 's'
+    particle.style.setProperty('--glow-delay', glowDelay)
+    particle.style.setProperty('--glow-duration', glowDuration)
+    
+    fragment.appendChild(particle)
+  }
+  
+  particlesRef.value.appendChild(fragment)
+}
 
 // 组件卸载时清理游戏
 onUnmounted(() => {
@@ -231,7 +321,7 @@ const availableCommands = [
   'help', 'clear', 'cls', 'ls', 'cat', 'theme', 'gh', 'about',
   'projects', 'contact', 'echo', 'date', 'time', 'pwd', 'cd',
   'mkdir', 'touch', 'music', 'calc', 'snake', '2048', 'guess',
-  'base64', 'hash', 'json', 'color', 'resize'
+  'base64', 'hash', 'json', 'color'
 ]
 
 // Tab自动补全处理
@@ -362,9 +452,6 @@ const executeCommand = async (input: string) => {
     case 'color':
       await colorTool(args)
       break
-    case 'resize':
-      await resizeWindow(args)
-      break
     default:
       terminalOutput.value.push({
         type: 'error',
@@ -383,8 +470,7 @@ const showHelp = async (category?: string) => {
         ['clear, cls', 'Clear terminal screen'],
         ['echo <text>', 'Display text'],
         ['date', 'Show current date and time'],
-        ['theme <name>', 'Change theme (classic|green|amber|blue|purple)'],
-        ['resize <w> <h>', 'Resize window or "reset"']
+        ['theme <name>', 'Change theme (classic|green|amber|blue|purple)']
       ]
     },
     games: {
@@ -800,6 +886,12 @@ const startResize = (event: MouseEvent, direction: string) => {
   resizeStartPos.value = { x: event.clientX, y: event.clientY }
   resizeStartSize.value = { ...windowSize.value }
   
+  // 添加resizing类到窗口
+  const terminalWindow = (event.target as HTMLElement)?.closest('.terminal-window') as HTMLElement
+  if (terminalWindow) {
+    terminalWindow.classList.add('resizing')
+  }
+  
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
   document.body.style.cursor = getResizeCursor(direction)
@@ -833,6 +925,12 @@ const stopResize = () => {
   isResizing.value = false
   resizeDirection.value = ''
   
+  // 移除resizing类
+  const terminalWindow = document.querySelector('.terminal-window')
+  if (terminalWindow) {
+    terminalWindow.classList.remove('resizing')
+  }
+  
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
   document.body.style.cursor = 'default'
@@ -851,40 +949,6 @@ const getResizeCursor = (direction: string) => {
     'sw': 'nesw-resize'
   }
   return cursors[direction] || 'default'
-}
-
-// 窗口大小命令
-const resizeWindow = async (args: string[]) => {
-  if (args.length === 0) {
-    terminalOutput.value.push({ type: 'output', content: '' })
-    await typeText(`Current window size: ${windowSize.value.width}x${windowSize.value.height}`)
-    terminalOutput.value.push({ type: 'info', content: 'Usage: resize <width> <height> or resize reset' })
-    return
-  }
-
-  if (args[0] === 'reset') {
-    windowSize.value = { width: 800, height: 600 }
-    terminalOutput.value.push({ type: 'output', content: '' })
-    await typeText('Window size reset to default (800x600)')
-    return
-  }
-
-  const width = parseInt(args[0])
-  const height = parseInt(args[1])
-
-  if (isNaN(width) || isNaN(height)) {
-    terminalOutput.value.push({ type: 'error', content: 'Invalid dimensions. Use numbers for width and height.' })
-    return
-  }
-
-  if (width < 420 || width > 1200 || height < 400 || height > 800) {
-    terminalOutput.value.push({ type: 'error', content: 'Size limits: width 420-1200px, height 400-800px' })
-    return
-  }
-
-  windowSize.value = { width, height }
-  terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText(`Window resized to ${width}x${height}`)
 }
 
 // 🔧 开发者工具
@@ -1523,53 +1587,71 @@ const playGuessNumber = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-800 flex items-center justify-center p-4">
-    <!-- 终端窗口 -->
-    <div
-        class="terminal-window border border-white font-arial relative"
-        :style="{
-          width: windowSize.width + 'px',
-          height: windowSize.height + 'px',
-          minWidth: '420px',
-          minHeight: '400px',
-          maxWidth: '1200px',
-          maxHeight: '800px'
-        }"
-        @click="handleTerminalClick"
-    >
+  <div class="cosmic-container">
+    <!-- 宇宙背景 -->
+    <div class="cosmic-background">
+      <!-- 星空层 -->
+      <div class="stars-layer stars-small"></div>
+      <div class="stars-layer stars-medium"></div>
+      <div class="stars-layer stars-large"></div>
+      
+      <!-- 粒子特效 -->
+      <div class="particles" ref="particlesRef"></div>
+      
+      <!-- 星云效果 -->
+      <div class="nebula nebula-1"></div>
+      <div class="nebula nebula-2"></div>
+      <div class="nebula nebula-3"></div>
+    </div>
+    
+    <!-- 终端容器 -->
+    <div class="terminal-container">
+      <!-- 终端窗口 -->
+      <div
+          class="terminal-window border border-white font-arial relative"
+          :style="{
+            width: windowSize.width + 'px',
+            height: windowSize.height + 'px',
+            minWidth: '420px',
+            minHeight: '400px',
+            maxWidth: '1200px',
+            maxHeight: '800px'
+          }"
+          @click="handleTerminalClick"
+      >
       <!-- 拖拽句柄 - 角落 -->
       <div 
-        class="absolute -top-1 -left-1 w-3 h-3 cursor-nwse-resize"
+        class="resize-handle resize-corner resize-nw"
         @mousedown="startResize($event, 'nw')"
       ></div>
       <div 
-        class="absolute -top-1 -right-1 w-3 h-3 cursor-nesw-resize"
+        class="resize-handle resize-corner resize-ne"
         @mousedown="startResize($event, 'ne')"
       ></div>
       <div 
-        class="absolute -bottom-1 -left-1 w-3 h-3 cursor-nesw-resize"
+        class="resize-handle resize-corner resize-sw"
         @mousedown="startResize($event, 'sw')"
       ></div>
       <div 
-        class="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize"
+        class="resize-handle resize-corner resize-se"
         @mousedown="startResize($event, 'se')"
       ></div>
       
       <!-- 拖拽句柄 - 边缘 -->
       <div 
-        class="absolute -top-1 left-3 right-3 h-2 cursor-ns-resize"
+        class="resize-handle resize-edge resize-n"
         @mousedown="startResize($event, 'n')"
       ></div>
       <div 
-        class="absolute -bottom-1 left-3 right-3 h-2 cursor-ns-resize"
+        class="resize-handle resize-edge resize-s"
         @mousedown="startResize($event, 's')"
       ></div>
       <div 
-        class="absolute -left-1 top-3 bottom-3 w-2 cursor-ew-resize"
+        class="resize-handle resize-edge resize-w"
         @mousedown="startResize($event, 'w')"
       ></div>
       <div 
-        class="absolute -right-1 top-3 bottom-3 w-2 cursor-ew-resize"
+        class="resize-handle resize-edge resize-e"
         @mousedown="startResize($event, 'e')"
       ></div>
 
@@ -1626,54 +1708,375 @@ const playGuessNumber = async () => {
         </div>
       </div>
     </div>
+    </div>
   </div>
   <audio ref="audioPlayer" hidden></audio>
 </template>
 
 <style scoped>
+/* 宇宙容器 */
+.cosmic-container {
+  position: relative;
+  min-height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* 宇宙背景 */
+.cosmic-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  z-index: -1;
+}
+
+/* 星空层 */
+.stars-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(2px 2px at 160px 30px, #ddd, transparent);
+  background-repeat: repeat;
+}
+
+.stars-small {
+  background-size: 200px 100px;
+  animation: starsMove 50s linear infinite;
+}
+
+.stars-medium {
+  background-size: 400px 200px;
+  animation: starsMove 100s linear infinite reverse;
+  opacity: 0.8;
+}
+
+.stars-large {
+  background-size: 600px 300px;
+  animation: starsMove 150s linear infinite;
+  opacity: 0.6;
+}
+
+/* 星空移动动画 */
+@keyframes starsMove {
+  0% { transform: translateX(0) translateY(0); }
+  100% { transform: translateX(-200px) translateY(-100px); }
+}
+
+/* 粒子容器 */
+.particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 单个粒子 */
+.particle {
+  position: absolute;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.8) 30%, rgba(255, 255, 255, 0.4) 60%, transparent 100%);
+  border-radius: 50%;
+  animation: 
+    particleFloat linear infinite,
+    particleGlow var(--glow-duration, 6s) ease-in-out infinite var(--glow-delay, 0s);
+}
+
+/* 小粒子 */
+.particle-small {
+  box-shadow: 
+    0 0 4px rgba(255, 255, 255, 0.5),
+    0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+/* 中等粒子 */
+.particle-medium {
+  box-shadow: 
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 0 16px rgba(255, 255, 255, 0.5),
+    0 0 24px rgba(255, 255, 255, 0.3);
+}
+
+/* 大粒子专属强化发光效果 */
+.particle-large {
+  box-shadow: 
+    0 0 12px rgba(255, 255, 255, 0.9),
+    0 0 24px rgba(255, 255, 255, 0.7),
+    0 0 36px rgba(255, 255, 255, 0.5),
+    0 0 48px rgba(200, 200, 255, 0.3),
+    0 0 60px rgba(150, 150, 255, 0.2);
+  animation: 
+    particleFloat linear infinite,
+    particleGlow var(--glow-duration, 6s) ease-in-out infinite var(--glow-delay, 0s),
+    particleLargeGlow calc(var(--glow-duration, 6s) * 1.5) ease-in-out infinite calc(var(--glow-delay, 0s) + 2s);
+}
+
+/* 粒子发光动画 */
+@keyframes particleGlow {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+  }
+  25% {
+    filter: brightness(1.5) drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+  }
+  50% {
+    filter: brightness(2) drop-shadow(0 0 16px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 32px rgba(200, 200, 255, 0.4));
+  }
+  75% {
+    filter: brightness(1.5) drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+  }
+  100% {
+    filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+  }
+}
+
+@keyframes particleLargeGlow {
+  0%, 80% {
+    box-shadow: 
+      0 0 12px rgba(255, 255, 255, 0.9),
+      0 0 24px rgba(255, 255, 255, 0.7),
+      0 0 36px rgba(255, 255, 255, 0.5),
+      0 0 48px rgba(200, 200, 255, 0.3),
+      0 0 60px rgba(150, 150, 255, 0.2);
+  }
+  90% {
+    box-shadow: 
+      0 0 20px rgba(255, 255, 255, 1),
+      0 0 40px rgba(255, 255, 255, 0.9),
+      0 0 60px rgba(255, 255, 255, 0.7),
+      0 0 80px rgba(200, 200, 255, 0.5),
+      0 0 100px rgba(150, 150, 255, 0.3),
+      0 0 120px rgba(100, 100, 255, 0.2);
+  }
+  100% {
+    box-shadow: 
+      0 0 12px rgba(255, 255, 255, 0.9),
+      0 0 24px rgba(255, 255, 255, 0.7),
+      0 0 36px rgba(255, 255, 255, 0.5),
+      0 0 48px rgba(200, 200, 255, 0.3),
+      0 0 60px rgba(150, 150, 255, 0.2);
+  }
+}
+
+@keyframes particleFloat {
+  0% {
+    transform: translateY(100vh) translateX(0) rotate(0deg) scale(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.3;
+    transform: translateY(95vh) translateX(5px) rotate(18deg) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(85vh) translateX(15px) rotate(54deg) scale(1);
+  }
+  50% {
+    transform: translateY(50vh) translateX(35px) rotate(180deg) scale(1.1);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(15vh) translateX(55px) rotate(306deg) scale(0.9);
+  }
+  95% {
+    opacity: 0.3;
+    transform: translateY(5vh) translateX(65px) rotate(342deg) scale(0.6);
+  }
+  100% {
+    transform: translateY(-5vh) translateX(70px) rotate(360deg) scale(0);
+    opacity: 0;
+  }
+}
+
+/* 星云效果 */
+.nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.3;
+  animation: nebulaGlow 8s ease-in-out infinite alternate;
+}
+
+.nebula-1 {
+  top: 20%;
+  left: 10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(138, 43, 226, 0.4) 0%, transparent 70%);
+  animation-delay: 0s;
+}
+
+.nebula-2 {
+  top: 60%;
+  right: 15%;
+  width: 400px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(30, 144, 255, 0.3) 0%, transparent 70%);
+  animation-delay: 2s;
+}
+
+.nebula-3 {
+  bottom: 20%;
+  left: 20%;
+  width: 350px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 20, 147, 0.2) 0%, transparent 70%);
+  animation-delay: 4s;
+}
+
+@keyframes nebulaGlow {
+  0% { opacity: 0.2; transform: scale(1); }
+  100% { opacity: 0.4; transform: scale(1.1); }
+}
+
+/* 终端容器 */
+.terminal-container {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1;
+}
+
+/* 终端窗口样式 */
 .terminal-window {
   position: relative;
   margin: 0;
   font-family: Arial, sans-serif;
   transition: none;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .terminal-content {
   font-family: 'Courier New', Courier, monospace;
   min-width: 420px;
+  background: rgba(0, 0, 0, 0.2);
 }
 
-/* 拖拽句柄样式 */
-.terminal-window > div[class*="absolute"] {
+/* 拖拽句柄基础样式 */
+.resize-handle {
+  position: absolute;
   background: transparent;
   z-index: 10;
+  transition: all 0.2s ease;
 }
 
-.terminal-window > div[class*="absolute"]:hover {
-  background: rgba(255, 255, 255, 0.1);
+.resize-handle:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* 角落拖拽句柄更明显 */
-.terminal-window > div[class*="cursor-nwse-resize"],
-.terminal-window > div[class*="cursor-nesw-resize"] {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
+/* 角落拖拽句柄 */
+.resize-corner {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.resize-nw {
+  top: -8px;
+  left: -8px;
+  cursor: nwse-resize;
+}
+
+.resize-ne {
+  top: -8px;
+  right: -8px;
+  cursor: nesw-resize;
+}
+
+.resize-sw {
+  bottom: -8px;
+  left: -8px;
+  cursor: nesw-resize;
+}
+
+.resize-se {
+  bottom: -8px;
+  right: -8px;
+  cursor: nwse-resize;
 }
 
 /* 边缘拖拽句柄 */
-.terminal-window > div[class*="cursor-ns-resize"] {
-  height: 4px;
+.resize-edge {
+  background: transparent;
 }
 
-.terminal-window > div[class*="cursor-ew-resize"] {
-  width: 4px;
+.resize-n {
+  top: -6px;
+  left: 16px;
+  right: 16px;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.resize-s {
+  bottom: -6px;
+  left: 16px;
+  right: 16px;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.resize-w {
+  left: -6px;
+  top: 16px;
+  bottom: 16px;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+.resize-e {
+  right: -6px;
+  top: 16px;
+  bottom: 16px;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+/* 拖拽手柄悬停效果 */
+.resize-corner:hover {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.resize-edge:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 拖拽时的视觉反馈 */
+.terminal-window.resizing .resize-handle {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 /* 防止用户选择 */
 .terminal-window.resizing * {
   user-select: none;
   pointer-events: none;
+}
+
+/* 标题栏半透明 */
+.terminal-header {
+  background: rgba(200, 200, 200, 0.9) !important;
+  backdrop-filter: blur(5px);
 }
 
 /* 滚动条样式 */
@@ -1697,6 +2100,7 @@ const playGuessNumber = async () => {
 /* 禁用输入框的默认样式 */
 input {
   font-family: 'Courier New', Courier, monospace;
+  color: inherit;
 }
 
 input:focus {
@@ -1715,9 +2119,56 @@ input:focus {
     min-width: 320px;
   }
   
-  /* 移动设备上隐藏拖拽句柄 */
-  .terminal-window > div[class*="absolute"] {
+  /* 移动设备上简化拖拽句柄 */
+  .resize-edge {
     display: none;
+  }
+  
+  .resize-corner {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .resize-nw {
+    top: -10px;
+    left: -10px;
+  }
+  
+  .resize-ne {
+    top: -10px;
+    right: -10px;
+  }
+  
+  .resize-sw {
+    bottom: -10px;
+    left: -10px;
+  }
+  
+  .resize-se {
+    bottom: -10px;
+    right: -10px;
+  }
+  
+  /* 移动设备粒子效果性能优化 */
+  .particles {
+    opacity: 0.5; /* 降低移动设备上的粒子透明度而不是完全隐藏 */
+  }
+  
+  .particle {
+    animation-duration: 40s !important; /* 减慢动画速度 */
+  }
+  
+  .nebula {
+    animation: none;
+  }
+}
+
+/* 性能优化 */
+@media (prefers-reduced-motion: reduce) {
+  .stars-layer,
+  .particle,
+  .nebula {
+    animation: none;
   }
 }
 </style>
