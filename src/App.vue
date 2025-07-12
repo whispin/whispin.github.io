@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import * as THREE from 'three'
 
 // 终端状态
 const terminalInput = ref('')
@@ -8,6 +9,18 @@ const commandHistory = ref<string[]>([])
 const historyIndex = ref(-1)
 const cursorVisible = ref(true)
 const isTyping = ref(false)
+
+// Three.js 相关
+const threeContainer = ref<HTMLElement>()
+let scene: THREE.Scene
+let camera: THREE.PerspectiveCamera
+let renderer: THREE.WebGLRenderer
+let particleSystem: THREE.Points
+let galaxySpiral: THREE.Points
+let starField: THREE.Points
+let animationId: number
+let mouse = { x: 0, y: 0 }
+let time = 0
 
 // 主题配置
 const themes = {
@@ -162,9 +175,540 @@ onMounted(() => {
     inputRef.value?.focus()
   })
   
-  // 初始化粒子特效
+  // 初始化Three.js场景
+  initThreeJS()
+  
+  // 初始化CSS粒子特效（作为备用）
   initParticles()
 })
+
+// Three.js 初始化
+const initThreeJS = () => {
+  if (!threeContainer.value) return
+
+  try {
+    // 检查WebGL支持
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    if (!gl) {
+      console.warn('WebGL not supported, falling back to CSS particles only')
+      return
+    }
+
+    // 创建场景
+    scene = new THREE.Scene()
+    
+    // 创建相机
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    camera.position.z = 5
+
+    // 创建渲染器
+    renderer = new THREE.WebGLRenderer({ 
+      alpha: true, 
+      antialias: window.innerWidth > 640, // 移动设备禁用抗锯齿
+      powerPreference: "high-performance"
+    })
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    threeContainer.value.appendChild(renderer.domElement)
+
+    // 创建粒子系统
+    createParticleSystem()
+    
+    // 创建星系螺旋
+    createGalaxySpiral()
+    
+    // 创建远景星场
+    createStarField()
+    
+    // 添加环境光照
+    setupLighting()
+    
+    // 添加鼠标交互
+    setupMouseInteraction()
+    
+    // 开始动画循环
+    animate()
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', onWindowResize)
+    
+    console.log('Three.js initialized successfully')
+  } catch (error) {
+    console.warn('Three.js initialization failed, using CSS particles only:', error)
+  }
+}
+
+// 创建3D粒子系统（微光粒子）
+const createParticleSystem = () => {
+  const particleCount = window.innerWidth < 640 ? 800 : 1500 // 减少粒子数量
+  const positions = new Float32Array(particleCount * 3)
+  const colors = new Float32Array(particleCount * 3)
+  const sizes = new Float32Array(particleCount)
+  const velocities = new Float32Array(particleCount * 3)
+
+  // 宇宙蓝紫色调色板
+  const colorPalette = [
+    new THREE.Color(0.9, 0.9, 1),        // 微蓝白色
+    new THREE.Color(0.4, 0.7, 1),        // 天蓝色
+    new THREE.Color(0.7, 0.5, 1),        // 浅紫色
+    new THREE.Color(0.5, 0.4, 1),        // 深紫色
+    new THREE.Color(0.3, 0.6, 1),        // 深蓝色
+    new THREE.Color(0.8, 0.7, 1),        // 淡紫白
+  ]
+
+  for (let i = 0; i < particleCount; i++) {
+    const i3 = i * 3
+
+    // 创建球形分布的粒子
+    const radius = Math.random() * 50 + 10
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(Math.random() * 2 - 1)
+
+    positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
+    positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
+    positions[i3 + 2] = radius * Math.cos(phi)
+
+    // 随机颜色
+    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)]
+    colors[i3] = color.r
+    colors[i3 + 1] = color.g
+    colors[i3 + 2] = color.b
+
+    // 随机大小 - 增加大小差异
+    const sizeType = Math.random()
+    if (sizeType < 0.3) {
+      // 30% 小粒子 - 增大最小尺寸
+      sizes[i] = Math.random() * 1.5 + 2.0  // 从 0.5-1.5 增加到 1.0-2.5
+    } else if (sizeType < 0.7) {
+      // 40% 中等粒子
+      sizes[i] = Math.random() * 3 + 3.0  // 从 1.5-4.5 增加到 2.0-5.0
+    } else if (sizeType < 0.9) {
+      // 20% 大粒子
+      sizes[i] = Math.random() * 5 + 5.5  // 从 3-8 增加到 3.5-8.5
+    } else {
+      // 10% 超大粒子
+      sizes[i] = Math.random() * 8 + 8  // 从 6-14 增加到 7-15
+    }
+
+    // 随机速度
+    velocities[i3] = (Math.random() - 0.5) * 0.02
+    velocities[i3 + 1] = (Math.random() - 0.5) * 0.02
+    velocities[i3 + 2] = (Math.random() - 0.5) * 0.02
+  }
+
+  // 创建几何体
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+  geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3))
+
+  // 添加随机相位用于闪烁效果
+  const phases = new Float32Array(particleCount)
+  for (let i = 0; i < particleCount; i++) {
+    phases[i] = Math.random() * Math.PI * 2
+  }
+  geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1))
+
+  // 创建粒子材质
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 },
+      mouse: { value: new THREE.Vector2() }
+    },
+    vertexShader: `
+      attribute float size;
+      attribute vec3 velocity;
+      attribute float phase;
+      varying vec3 vColor;
+      varying float vTwinkle;
+      uniform float time;
+      uniform vec2 mouse;
+      
+      void main() {
+        vColor = color;
+        
+        vec3 pos = position;
+        
+        // 粒子运动
+        pos += velocity * time * 10.0;
+        
+        // 鼠标交互
+        vec2 mouseInfluence = mouse * 0.5;
+        pos.x += sin(time * 0.5 + position.y * 0.01) * mouseInfluence.x;
+        pos.y += cos(time * 0.5 + position.x * 0.01) * mouseInfluence.y;
+        
+        // 呼吸效果
+        float pulse = sin(time * 2.0 + length(position) * 0.05) * 0.5 + 0.5;
+        pos += normalize(position) * pulse * 2.0;
+        
+        // 星星闪烁效果 - 增强闪烁强度
+        float twinkleSpeed = 1.5 + sin(phase) * 2.0; // 更大的速度变化
+        float twinkleCycle = sin(time * twinkleSpeed + phase) * 0.7 + 0.3; // 增加变化幅度
+        
+        // 增强随机的强闪烁频率和强度
+        float strongTwinkle = step(0.9, sin(time * 0.5 + phase * 2.0)) * 3.0; // 更频繁更强的闪烁
+        
+        // 添加超强闪烁效果
+        float superTwinkle = step(0.98, sin(time * 0.2 + phase * 5.0)) * 5.0;
+        
+        vTwinkle = twinkleCycle + strongTwinkle + superTwinkle;
+        vTwinkle = clamp(vTwinkle, 0.1, 6.0); // 扩大范围，允许更强的发光
+        
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        
+        // 动态大小，结合闪烁效果
+        float finalSize = size * (1.0 + pulse * 0.5) * vTwinkle;
+        gl_PointSize = finalSize * (300.0 / -mvPosition.z);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying float vTwinkle;
+      uniform float time;
+      
+      void main() {
+        vec2 center = gl_PointCoord - 0.5;
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        // 创建发光效果 - 增强边缘柔和度
+        float alpha = 1.0 - (dist * 2.0);
+        alpha = pow(alpha, 2.0); // 减少指数，让边缘更柔和
+        
+        // 增强发光效果
+        float glowCore = 1.0 - smoothstep(0.0, 0.3, dist);
+        float glowHalo = 1.0 - smoothstep(0.0, 0.5, dist) * 0.5;
+        alpha = glowCore + glowHalo * 0.6;
+        
+        // 结合星星闪烁效果 - 更强的变化
+        alpha *= vTwinkle;
+        
+        // 增强额外的闪烁变化
+        float extraTwinkle = sin(time * 6.0 + length(vColor) * 15.0) * 0.3 + 0.7;
+        alpha *= extraTwinkle;
+        
+        // 额外的发光效果层
+        vec3 glowColor = vColor * (1.0 + vTwinkle * 0.5);
+        
+        gl_FragColor = vec4(glowColor, alpha * 1.2); // 增强整体亮度
+      }
+    `,
+    transparent: true,
+    vertexColors: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+
+  // 创建粒子系统并添加到场景
+  particleSystem = new THREE.Points(geometry, material)
+  scene.add(particleSystem)
+}
+
+
+// 创建星系螺旋
+const createGalaxySpiral = () => {
+  const particleCount = 15000
+  const positions = new Float32Array(particleCount * 3)
+  const colors = new Float32Array(particleCount * 3)
+  const sizes = new Float32Array(particleCount)
+
+  const arms = 4
+  const armSpread = 0.3
+  const spiralTightness = 2
+
+  for (let i = 0; i < particleCount; i++) {
+    const i3 = i * 3
+
+    // 螺旋臂参数
+    const armIndex = i % arms
+    const progress = Math.pow(Math.random(), 2)
+    const radius = progress * 100
+
+    // 螺旋角度
+    const baseAngle = (armIndex / arms) * Math.PI * 2
+    const spiralAngle = baseAngle + radius * spiralTightness * 0.01
+
+    // 添加随机扩散
+    const randomAngle = (Math.random() - 0.5) * armSpread
+    const randomRadius = (Math.random() - 0.5) * 5
+
+    const x = (radius + randomRadius) * Math.cos(spiralAngle + randomAngle)
+    const z = (radius + randomRadius) * Math.sin(spiralAngle + randomAngle)
+    const y = (Math.random() - 0.5) * 10 * (1 - progress) // 中心厚，边缘薄
+
+    positions[i3] = x
+    positions[i3 + 1] = y
+    positions[i3 + 2] = z - 120 // 放在远处
+
+    // 颜色：中心偏黄，边缘偏蓝
+    const centerDistance = progress
+    if (centerDistance < 0.3) {
+      // 中心区域 - 黄白色
+      colors[i3] = 1.0
+      colors[i3 + 1] = 0.9 + Math.random() * 0.1
+      colors[i3 + 2] = 0.6 + Math.random() * 0.2
+    } else if (centerDistance < 0.7) {
+      // 中间区域 - 白色
+      colors[i3] = 0.9 + Math.random() * 0.1
+      colors[i3 + 1] = 0.9 + Math.random() * 0.1
+      colors[i3 + 2] = 0.9 + Math.random() * 0.1
+    } else {
+      // 外围区域 - 蓝白色
+      colors[i3] = 0.7 + Math.random() * 0.2
+      colors[i3 + 1] = 0.8 + Math.random() * 0.2
+      colors[i3 + 2] = 1.0
+    }
+
+    sizes[i] = (1 - centerDistance) * 3 + 0.5
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 }
+    },
+    vertexShader: `
+      attribute float size;
+      varying vec3 vColor;
+      uniform float time;
+      
+      void main() {
+        vColor = color;
+        
+        vec3 pos = position;
+        
+        // 星系旋转
+        float angle = time * 0.02;
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+        
+        float newX = pos.x * cosA - pos.z * sinA;
+        float newZ = pos.x * sinA + pos.z * cosA;
+        pos.x = newX;
+        pos.z = newZ;
+        
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        
+        gl_PointSize = size * (800.0 / -mvPosition.z);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      
+      void main() {
+        vec2 center = gl_PointCoord - 0.5;
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        float alpha = 1.0 - (dist * 2.0);
+        alpha = pow(alpha, 2.0);
+        
+        gl_FragColor = vec4(vColor, alpha * 0.2);
+      }
+    `,
+    transparent: true,
+    vertexColors: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+
+  galaxySpiral = new THREE.Points(geometry, material)
+  scene.add(galaxySpiral)
+}
+
+// 创建远景星场
+const createStarField = () => {
+  const particleCount = 50000
+  const positions = new Float32Array(particleCount * 3)
+  const colors = new Float32Array(particleCount * 3)
+  const sizes = new Float32Array(particleCount)
+
+  for (let i = 0; i < particleCount; i++) {
+    const i3 = i * 3
+
+    // 创建球形远景星场
+    const radius = 200 + Math.random() * 300
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(Math.random() * 2 - 1)
+
+    positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
+    positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
+    positions[i3 + 2] = radius * Math.cos(phi)
+
+    // 远景星星颜色：蓝紫色调为主
+    const colorType = Math.random()
+    if (colorType < 0.6) {
+      // 60% 蓝白色星星
+      const intensity = 0.8 + Math.random() * 0.2
+      colors[i3] = intensity * 0.9
+      colors[i3 + 1] = intensity * 0.95
+      colors[i3 + 2] = intensity
+    } else if (colorType < 0.85) {
+      // 25% 紫蓝色星星
+      colors[i3] = 0.7 + Math.random() * 0.2
+      colors[i3 + 1] = 0.5 + Math.random() * 0.3
+      colors[i3 + 2] = 1.0
+    } else {
+      // 15% 紫色星星
+      colors[i3] = 0.8 + Math.random() * 0.2
+      colors[i3 + 1] = 0.4 + Math.random() * 0.3
+      colors[i3 + 2] = 0.9 + Math.random() * 0.1
+    }
+
+    sizes[i] = Math.random() * 1.5 + 0.5
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 }
+    },
+    vertexShader: `
+      attribute float size;
+      varying vec3 vColor;
+      uniform float time;
+      
+      void main() {
+        vColor = color;
+        
+        vec3 pos = position;
+        
+        // 非常缓慢的旋转
+        float angle = time * 0.001;
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+        
+        float newX = pos.x * cosA - pos.z * sinA;
+        float newZ = pos.x * sinA + pos.z * cosA;
+        pos.x = newX;
+        pos.z = newZ;
+        
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        
+        gl_PointSize = size * (1000.0 / -mvPosition.z);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      uniform float time;
+      
+      void main() {
+        vec2 center = gl_PointCoord - 0.5;
+        float dist = length(center);
+        
+        if (dist > 0.5) discard;
+        
+        // 星星闪烁效果
+        float twinkle = sin(time * 3.0 + gl_FragCoord.x * 0.1 + gl_FragCoord.y * 0.1) * 0.3 + 0.7;
+        
+        float alpha = (1.0 - dist * 2.0) * twinkle;
+        alpha = pow(alpha, 2.0);
+        
+        gl_FragColor = vec4(vColor, alpha * 0.4);
+      }
+    `,
+    transparent: true,
+    vertexColors: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+
+  starField = new THREE.Points(geometry, material)
+  scene.add(starField)
+}
+
+// 设置环境光照
+const setupLighting = () => {
+  // 添加环境光
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.3)
+  scene.add(ambientLight)
+
+  // 添加方向光模拟远处星光
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5)
+  directionalLight.position.set(100, 100, 50)
+  scene.add(directionalLight)
+
+  // 添加点光源模拟附近恒星
+  const pointLight1 = new THREE.PointLight(0x4080ff, 0.8, 200)
+  pointLight1.position.set(50, 30, -20)
+  scene.add(pointLight1)
+
+  const pointLight2 = new THREE.PointLight(0xff8040, 0.6, 150)
+  pointLight2.position.set(-40, -20, 30)
+  scene.add(pointLight2)
+
+  const pointLight3 = new THREE.PointLight(0x40ff80, 0.4, 100)
+  pointLight3.position.set(20, -30, -40)
+  scene.add(pointLight3)
+}
+
+// 鼠标交互设置
+const setupMouseInteraction = () => {
+  const handleMouseMove = (event: MouseEvent) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+  }
+  
+  window.addEventListener('mousemove', handleMouseMove)
+}
+
+// 动画循环
+const animate = () => {
+  animationId = requestAnimationFrame(animate)
+  
+  time = Date.now() * 0.001
+  
+  if (particleSystem) {
+    // 更新shader uniforms
+    ;(particleSystem.material as THREE.ShaderMaterial).uniforms.time.value = time
+    ;(particleSystem.material as THREE.ShaderMaterial).uniforms.mouse.value.set(mouse.x, mouse.y)
+    
+    // 缓慢旋转粒子系统
+    particleSystem.rotation.y += 0.001
+    particleSystem.rotation.x += 0.0005
+  }
+  
+  // 动画星系螺旋
+  if (galaxySpiral && galaxySpiral.material && 'uniforms' in galaxySpiral.material) {
+    (galaxySpiral.material as THREE.ShaderMaterial).uniforms.time.value = time
+  }
+  
+  // 动画远景星场
+  if (starField && starField.material && 'uniforms' in starField.material) {
+    (starField.material as THREE.ShaderMaterial).uniforms.time.value = time
+  }
+  
+  // 相机轻微摆动
+  camera.position.x = Math.sin(time * 0.1) * 0.5
+  camera.position.y = Math.cos(time * 0.15) * 0.3
+  camera.lookAt(scene.position)
+  
+  renderer.render(scene, camera)
+}
+
+// 窗口大小调整
+const onWindowResize = () => {
+  if (!camera || !renderer) return
+  
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+}
 
 // 粒子特效初始化
 const initParticles = () => {
@@ -241,10 +785,39 @@ const initParticles = () => {
     particle.style.animationDirection = direction
     
     // 随机发光动画延迟和持续时间
-    const glowDelay = Math.random() * 10 + 's'
-    const glowDuration = (Math.random() * 8 + 4) + 's'
+    const glowDelay = Math.random() * 15 + 's'
+    const glowDuration = (Math.random() * 12 + 6) + 's'
+    const pulseDuration = (Math.random() * 8 + 4) + 's'
+    const scaleDuration = (Math.random() * 10 + 8) + 's'
+    
     particle.style.setProperty('--glow-delay', glowDelay)
     particle.style.setProperty('--glow-duration', glowDuration)
+    particle.style.setProperty('--pulse-duration', pulseDuration)
+    particle.style.setProperty('--scale-duration', scaleDuration)
+    
+    // 随机粒子颜色类型（科技感配色）
+    const colorType = Math.random()
+    if (colorType < 0.4) {
+      // 40% 蓝白色（经典星光）
+      particle.style.setProperty('--particle-color', '255, 255, 255')
+      particle.style.setProperty('--particle-glow', '200, 220, 255')
+    } else if (colorType < 0.65) {
+      // 25% 青色（科技感）
+      particle.style.setProperty('--particle-color', '0, 255, 255')
+      particle.style.setProperty('--particle-glow', '0, 200, 255')
+    } else if (colorType < 0.8) {
+      // 15% 紫色（神秘感）
+      particle.style.setProperty('--particle-color', '200, 100, 255')
+      particle.style.setProperty('--particle-glow', '150, 50, 255')
+    } else if (colorType < 0.95) {
+      // 15% 绿色（科技矩阵感）
+      particle.style.setProperty('--particle-color', '100, 255, 150')
+      particle.style.setProperty('--particle-glow', '50, 255, 100')
+    } else {
+      // 5% 橙红色（能量核心感）
+      particle.style.setProperty('--particle-color', '255, 120, 50')
+      particle.style.setProperty('--particle-glow', '255, 80, 20')
+    }
     
     fragment.appendChild(particle)
   }
@@ -252,10 +825,54 @@ const initParticles = () => {
   particlesRef.value.appendChild(fragment)
 }
 
-// 组件卸载时清理游戏
+// 组件卸载时清理游戏和Three.js
 onUnmounted(() => {
   stopCurrentGame()
   stopResize()
+  
+  // 清理Three.js资源
+  if (animationId) {
+    cancelAnimationFrame(animationId)
+  }
+  
+  if (renderer) {
+    renderer.dispose()
+    if (threeContainer.value && renderer.domElement) {
+      threeContainer.value.removeChild(renderer.domElement)
+    }
+  }
+  
+  // 清理主粒子系统
+  if (particleSystem) {
+    if (particleSystem.geometry) {
+      particleSystem.geometry.dispose()
+    }
+    if (particleSystem.material) {
+      (particleSystem.material as THREE.Material).dispose()
+    }
+  }
+  
+  // 清理星系螺旋
+  if (galaxySpiral) {
+    if (galaxySpiral.geometry) {
+      galaxySpiral.geometry.dispose()
+    }
+    if (galaxySpiral.material) {
+      (galaxySpiral.material as THREE.Material).dispose()
+    }
+  }
+  
+  // 清理远景星场
+  if (starField) {
+    if (starField.geometry) {
+      starField.geometry.dispose()
+    }
+    if (starField.material) {
+      (starField.material as THREE.Material).dispose()
+    }
+  }
+  
+  window.removeEventListener('resize', onWindowResize)
 })
 
 // 计算当前主题样式
@@ -1590,18 +2207,8 @@ const playGuessNumber = async () => {
   <div class="cosmic-container">
     <!-- 宇宙背景 -->
     <div class="cosmic-background">
-      <!-- 星空层 -->
-      <div class="stars-layer stars-small"></div>
-      <div class="stars-layer stars-medium"></div>
-      <div class="stars-layer stars-large"></div>
-      
-      <!-- 粒子特效 -->
-      <div class="particles" ref="particlesRef"></div>
-      
-      <!-- 星云效果 -->
-      <div class="nebula nebula-1"></div>
-      <div class="nebula nebula-2"></div>
-      <div class="nebula nebula-3"></div>
+      <!-- Three.js 3D粒子容器 -->
+      <div class="three-container" ref="threeContainer"></div>
     </div>
     
     <!-- 终端容器 -->
@@ -1729,47 +2336,94 @@ const playGuessNumber = async () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  background: 
+    /* 深邃的宇宙渐变 - 增强蓝紫色调 */
+    radial-gradient(ellipse at 15% 25%, rgba(20, 40, 80, 0.7) 0%, transparent 60%),
+    radial-gradient(ellipse at 85% 75%, rgba(40, 20, 80, 0.8) 0%, transparent 55%),
+    radial-gradient(ellipse at 35% 85%, rgba(10, 30, 70, 0.6) 0%, transparent 65%),
+    radial-gradient(ellipse at 65% 15%, rgba(30, 10, 60, 0.5) 0%, transparent 70%),
+    /* 主背景渐变 - 深邃的太空 */
+    radial-gradient(circle at 50% 50%, rgba(5, 10, 25, 0.9) 0%, rgba(0, 0, 0, 1) 70%),
+    linear-gradient(135deg, #000000 0%, #0a0515 25%, #1a1535 50%, #0f0520 75%, #000000 100%);
   z-index: -1;
 }
 
-/* 星空层 */
-.stars-layer {
+/* 添加深邃的宇宙噪点纹理 - 蓝紫色调 */
+.cosmic-background::before {
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-image: 
-    radial-gradient(2px 2px at 20px 30px, #eee, transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1px 1px at 90px 40px, #fff, transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
-    radial-gradient(2px 2px at 160px 30px, #ddd, transparent);
+    /* 蓝紫色微光点 */
+    radial-gradient(1px 1px at 25px 35px, rgba(100, 150, 255, 0.12), transparent),
+    radial-gradient(1px 1px at 45px 75px, rgba(150, 100, 255, 0.10), transparent),
+    radial-gradient(1px 1px at 85px 45px, rgba(80, 120, 255, 0.08), transparent),
+    radial-gradient(1px 1px at 125px 85px, rgba(120, 80, 255, 0.06), transparent),
+    radial-gradient(1px 1px at 165px 25px, rgba(60, 100, 255, 0.07), transparent),
+    /* 更远的微光 */
+    radial-gradient(0.5px 0.5px at 180px 60px, rgba(200, 150, 255, 0.04), transparent),
+    radial-gradient(0.5px 0.5px at 220px 90px, rgba(150, 200, 255, 0.03), transparent);
   background-repeat: repeat;
+  background-size: 250px 180px;
+  opacity: 0.4;
+  animation: cosmicNoise 120s linear infinite;
 }
 
-.stars-small {
-  background-size: 200px 100px;
-  animation: starsMove 50s linear infinite;
+@keyframes cosmicNoise {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-250px, -180px); }
 }
 
-.stars-medium {
-  background-size: 400px 200px;
-  animation: starsMove 100s linear infinite reverse;
-  opacity: 0.8;
-}
-
-.stars-large {
-  background-size: 600px 300px;
-  animation: starsMove 150s linear infinite;
+/* 添加深度感后景 */
+.cosmic-background::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 30% 40%, rgba(20, 60, 120, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(60, 20, 120, 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(40, 40, 100, 0.12) 0%, transparent 50%);
   opacity: 0.6;
+  animation: cosmicBreathing 40s ease-in-out infinite alternate;
+  z-index: -1;
 }
 
-/* 星空移动动画 */
-@keyframes starsMove {
-  0% { transform: translateX(0) translateY(0); }
-  100% { transform: translateX(-200px) translateY(-100px); }
+@keyframes cosmicBreathing {
+  0% { 
+    opacity: 0.4;
+    transform: scale(1.0);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+  100% { 
+    opacity: 0.5;
+    transform: scale(1.02);
+  }
+}
+
+/* Three.js 3D粒子容器 */
+.three-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -10;
+  pointer-events: none;
+}
+
+.three-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* 粒子容器 */
@@ -1780,63 +2434,164 @@ const playGuessNumber = async () => {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: -8; /* 在Three.js之上，星云之下 */
+  opacity: 0.15; /* 降低透明度，作为补充效果 */
 }
 
 /* 单个粒子 */
 .particle {
   position: absolute;
-  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.8) 30%, rgba(255, 255, 255, 0.4) 60%, transparent 100%);
+  background: radial-gradient(circle, 
+    rgba(var(--particle-color, 255, 255, 255), 1) 0%, 
+    rgba(var(--particle-color, 255, 255, 255), 0.8) 30%, 
+    rgba(var(--particle-color, 255, 255, 255), 0.4) 60%, 
+    transparent 100%);
   border-radius: 50%;
   animation: 
     particleFloat linear infinite,
-    particleGlow var(--glow-duration, 6s) ease-in-out infinite var(--glow-delay, 0s);
+    particleGlow var(--glow-duration, 6s) ease-in-out infinite var(--glow-delay, 0s),
+    particlePulse var(--pulse-duration, 4s) ease-in-out infinite,
+    particleScale var(--scale-duration, 8s) ease-in-out infinite,
+    particleFadeInOut calc(var(--glow-duration, 6s) * 1.5) ease-in-out infinite;
 }
 
 /* 小粒子 */
 .particle-small {
   box-shadow: 
-    0 0 4px rgba(255, 255, 255, 0.5),
-    0 0 8px rgba(255, 255, 255, 0.3);
+    0 0 2px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+    0 0 4px rgba(var(--particle-glow, 255, 255, 255), 0.2),
+    0 0 6px rgba(var(--particle-glow, 255, 255, 255), 0.1);
 }
 
 /* 中等粒子 */
 .particle-medium {
   box-shadow: 
-    0 0 8px rgba(255, 255, 255, 0.7),
-    0 0 16px rgba(255, 255, 255, 0.5),
-    0 0 24px rgba(255, 255, 255, 0.3);
+    0 0 4px rgba(var(--particle-glow, 255, 255, 255), 0.4),
+    0 0 8px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+    0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.2),
+    0 0 16px rgba(var(--particle-glow, 255, 255, 255), 0.1);
 }
 
 /* 大粒子专属强化发光效果 */
 .particle-large {
   box-shadow: 
-    0 0 12px rgba(255, 255, 255, 0.9),
-    0 0 24px rgba(255, 255, 255, 0.7),
-    0 0 36px rgba(255, 255, 255, 0.5),
-    0 0 48px rgba(200, 200, 255, 0.3),
-    0 0 60px rgba(150, 150, 255, 0.2);
+    0 0 6px rgba(var(--particle-glow, 255, 255, 255), 0.5),
+    0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.4),
+    0 0 18px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+    0 0 24px rgba(var(--particle-glow, 255, 255, 255), 0.2),
+    0 0 30px rgba(var(--particle-glow, 255, 255, 255), 0.1);
   animation: 
     particleFloat linear infinite,
     particleGlow var(--glow-duration, 6s) ease-in-out infinite var(--glow-delay, 0s),
-    particleLargeGlow calc(var(--glow-duration, 6s) * 1.5) ease-in-out infinite calc(var(--glow-delay, 0s) + 2s);
+    particleFadeInOut calc(var(--glow-duration, 6s) * 1.5) ease-in-out infinite;
 }
 
-/* 粒子发光动画 */
-@keyframes particleGlow {
+/* 淡入淡出动画 */
+@keyframes particleFadeInOut {
   0% {
-    filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+    opacity: 0.3;
   }
   25% {
-    filter: brightness(1.5) drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+    opacity: 0.8;
   }
   50% {
-    filter: brightness(2) drop-shadow(0 0 16px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 32px rgba(200, 200, 255, 0.4));
+    opacity: 1;
   }
   75% {
-    filter: brightness(1.5) drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+    opacity: 0.6;
   }
   100% {
-    filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+    opacity: 0.3;
+  }
+}
+
+/* 尺寸变化动画 */
+@keyframes particleScale {
+  0% {
+    transform: scale(0.6);
+  }
+  20% {
+    transform: scale(1.0);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  60% {
+    transform: scale(0.9);
+  }
+  80% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(0.6);
+  }
+}
+
+/* 脉冲呼吸动画 */
+@keyframes particlePulse {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+  }
+  25% {
+    filter: brightness(1.5) saturate(1.2);
+  }
+  50% {
+    filter: brightness(2.5) saturate(1.5);
+  }
+  75% {
+    filter: brightness(1.8) saturate(1.3);
+  }
+}
+
+/* 大粒子强化发光动画 */
+@keyframes particleIntenseGlow {
+  0%, 70% {
+    box-shadow: 
+      0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.9),
+      0 0 24px rgba(var(--particle-glow, 255, 255, 255), 0.7),
+      0 0 36px rgba(var(--particle-glow, 255, 255, 255), 0.5),
+      0 0 48px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+      0 0 60px rgba(var(--particle-glow, 255, 255, 255), 0.2);
+  }
+  85% {
+    box-shadow: 
+      0 0 20px rgba(var(--particle-glow, 255, 255, 255), 1),
+      0 0 40px rgba(var(--particle-glow, 255, 255, 255), 0.9),
+      0 0 60px rgba(var(--particle-glow, 255, 255, 255), 0.8),
+      0 0 80px rgba(var(--particle-glow, 255, 255, 255), 0.6),
+      0 0 100px rgba(var(--particle-glow, 255, 255, 255), 0.4),
+      0 0 120px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+      0 0 150px rgba(var(--particle-glow, 255, 255, 255), 0.2);
+  }
+  100% {
+    box-shadow: 
+      0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.9),
+      0 0 24px rgba(var(--particle-glow, 255, 255, 255), 0.7),
+      0 0 36px rgba(var(--particle-glow, 255, 255, 255), 0.5),
+      0 0 48px rgba(var(--particle-glow, 255, 255, 255), 0.3),
+      0 0 60px rgba(var(--particle-glow, 255, 255, 255), 0.2);
+  }
+}
+
+/* 基础发光动画（增强版） */
+@keyframes particleGlow {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 2px rgba(var(--particle-glow, 255, 255, 255), 0.3));
+  }
+  20% {
+    filter: brightness(1.3) drop-shadow(0 0 6px rgba(var(--particle-glow, 255, 255, 255), 0.5));
+  }
+  40% {
+    filter: brightness(1.8) drop-shadow(0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.7));
+  }
+  60% {
+    filter: brightness(2.5) drop-shadow(0 0 18px rgba(var(--particle-glow, 255, 255, 255), 0.9)) drop-shadow(0 0 36px rgba(var(--particle-glow, 255, 255, 255), 0.5));
+  }
+  80% {
+    filter: brightness(1.8) drop-shadow(0 0 12px rgba(var(--particle-glow, 255, 255, 255), 0.7));
+  }
+  100% {
+    filter: brightness(1) drop-shadow(0 0 2px rgba(var(--particle-glow, 255, 255, 255), 0.3));
   }
 }
 
@@ -1898,46 +2653,6 @@ const playGuessNumber = async () => {
   }
 }
 
-/* 星云效果 */
-.nebula {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.3;
-  animation: nebulaGlow 8s ease-in-out infinite alternate;
-}
-
-.nebula-1 {
-  top: 20%;
-  left: 10%;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(138, 43, 226, 0.4) 0%, transparent 70%);
-  animation-delay: 0s;
-}
-
-.nebula-2 {
-  top: 60%;
-  right: 15%;
-  width: 400px;
-  height: 250px;
-  background: radial-gradient(circle, rgba(30, 144, 255, 0.3) 0%, transparent 70%);
-  animation-delay: 2s;
-}
-
-.nebula-3 {
-  bottom: 20%;
-  left: 20%;
-  width: 350px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(255, 20, 147, 0.2) 0%, transparent 70%);
-  animation-delay: 4s;
-}
-
-@keyframes nebulaGlow {
-  0% { opacity: 0.2; transform: scale(1); }
-  100% { opacity: 0.4; transform: scale(1.1); }
-}
 
 /* 终端容器 */
 .terminal-container {
@@ -2150,25 +2865,38 @@ input:focus {
   }
   
   /* 移动设备粒子效果性能优化 */
+  .three-container {
+    opacity: 0.7; /* 降低Three.js粒子透明度 */
+  }
+  
   .particles {
-    opacity: 0.5; /* 降低移动设备上的粒子透明度而不是完全隐藏 */
+    opacity: 0.2; /* 进一步降低CSS粒子透明度 */
   }
   
   .particle {
-    animation-duration: 40s !important; /* 减慢动画速度 */
+    /* 简化动画，提高性能 */
+    animation: 
+      particleFloat linear infinite,
+      particleGlow var(--glow-duration, 8s) ease-in-out infinite var(--glow-delay, 0s) !important;
   }
   
-  .nebula {
-    animation: none;
+  .particle-large {
+    /* 大粒子也简化动画 */
+    animation: 
+      particleFloat linear infinite,
+      particleGlow var(--glow-duration, 8s) ease-in-out infinite var(--glow-delay, 0s),
+      particleFadeInOut calc(var(--glow-duration, 8s) * 1.5) ease-in-out infinite !important;
   }
 }
 
 /* 性能优化 */
 @media (prefers-reduced-motion: reduce) {
-  .stars-layer,
-  .particle,
-  .nebula {
-    animation: none;
+  .particle {
+    animation: particleFloat linear infinite !important;
+  }
+  
+  .particle-large {
+    animation: particleFloat linear infinite !important;
   }
 }
 </style>
