@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 
 // 终端状态
 const terminalInput = ref('')
@@ -30,6 +30,16 @@ const terminalOutput = ref<TerminalLine[]>([])
 const inputRef = ref<HTMLInputElement>()
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 const currentTrack = ref<any | null>(null)
+
+// 窗口大小调节
+const windowSize = ref({
+  width: 800,
+  height: 600
+})
+const isResizing = ref(false)
+const resizeStartPos = ref({ x: 0, y: 0 })
+const resizeStartSize = ref({ width: 0, height: 0 })
+const resizeDirection = ref('')
 
 // 虚拟文件系统
 interface FileSystemItem {
@@ -152,6 +162,12 @@ onMounted(() => {
   })
 })
 
+// 组件卸载时清理游戏
+onUnmounted(() => {
+  stopCurrentGame()
+  stopResize()
+})
+
 // 计算当前主题样式
 const themeClasses = computed(() => themes[currentTheme.value as keyof typeof themes])
 
@@ -191,10 +207,10 @@ const showStartupInfo = async () => {
 
   // 欢迎信息
   terminalOutput.value.push({ type: 'info', content: '' })
-  await typeText('Welcome to whispin Terminal v2.0')
+  await typeText('🚀 Welcome to whispin Terminal v2.0')
 
   terminalOutput.value.push({ type: 'info', content: '' })
-  await typeText('Type "help" to see available commands.')
+  await typeText('Type "help" for commands or try "snake" for a quick game!')
 
   terminalOutput.value.push({ type: 'info', content: '' })
 }
@@ -214,7 +230,8 @@ const getCurrentTime = () => {
 const availableCommands = [
   'help', 'clear', 'cls', 'ls', 'cat', 'theme', 'gh', 'about',
   'projects', 'contact', 'echo', 'date', 'time', 'pwd', 'cd',
-  'mkdir', 'touch', 'music'
+  'mkdir', 'touch', 'music', 'calc', 'snake', '2048', 'guess',
+  'base64', 'hash', 'json', 'color', 'resize'
 ]
 
 // Tab自动补全处理
@@ -240,6 +257,9 @@ const handleTabCompletion = () => {
       suggestions = filesAndDirs.filter(item => item.toLowerCase().startsWith(arg.toLowerCase()))
     } else if (command === 'theme') {
       suggestions = Object.keys(themes).filter(theme => theme.startsWith(arg))
+    } else if (command === 'help') {
+      const helpCategories = ['basic', 'games', 'tools', 'system', 'all']
+      suggestions = helpCategories.filter(cat => cat.startsWith(arg))
     }
   }
 
@@ -277,7 +297,7 @@ const executeCommand = async (input: string) => {
   // 执行命令
   switch (command) {
     case 'help':
-      await showHelp()
+      await showHelp(args[0])
       break
     case 'clear':
     case 'cls':
@@ -318,6 +338,33 @@ const executeCommand = async (input: string) => {
     case 'music':
       await playMusic(args)
       break
+    case 'calc':
+      await calculator(args.join(' '))
+      break
+    case 'snake':
+      await playSnake()
+      break
+    case '2048':
+      await play2048()
+      break
+    case 'guess':
+      await playGuessNumber()
+      break
+    case 'base64':
+      await base64Tool(args)
+      break
+    case 'hash':
+      await hashTool(args)
+      break
+    case 'json':
+      await jsonTool(args)
+      break
+    case 'color':
+      await colorTool(args)
+      break
+    case 'resize':
+      await resizeWindow(args)
+      break
     default:
       terminalOutput.value.push({
         type: 'error',
@@ -327,29 +374,109 @@ const executeCommand = async (input: string) => {
 }
 
 // 命令实现
-const showHelp = async () => {
-  const helpText = [
-    'Available commands:',
-    '',
-    '  help       - Show this help message',
-    '  clear/cls  - Clear the terminal screen',
-    '  ping <url> - Ping a domain or IP address',
-    '  ls/dir     - List files in current directory',
-    '  cd <path>  - Change directory',
-    '  cat <file> - Display file contents',
-    '  github     - Show GitHub profile information',
-    '  theme <name> - Change terminal theme (classic, green, amber, blue, purple)',
-    '  history    - Show command history',
-    '  whoami     - Display current user',
-    '  date       - Show current date and time',
-    '  echo <text> - Display text',
-    '  music [play|stop|next|volume <0-100>] - Play light music',
-  ]
-
-  for (const line of helpText) {
-    terminalOutput.value.push({ type: 'output', content: '' })
-    await typeText(line, 15)
+const showHelp = async (category?: string) => {
+  const commands = {
+    basic: {
+      title: '📝 Basic Commands',
+      items: [
+        ['help [category]', 'Show help (basic|games|tools|all)'],
+        ['clear, cls', 'Clear terminal screen'],
+        ['echo <text>', 'Display text'],
+        ['date', 'Show current date and time'],
+        ['theme <name>', 'Change theme (classic|green|amber|blue|purple)'],
+        ['resize <w> <h>', 'Resize window or "reset"']
+      ]
+    },
+    games: {
+      title: '🎮 Games',
+      items: [
+        ['snake', 'Play Snake game (WASD to move, Q to quit)'],
+        ['2048', 'Play 2048 puzzle (WASD to move, Q to quit)'],
+        ['guess', 'Number guessing game (use echo <number>)']
+      ]
+    },
+    tools: {
+      title: '🔧 Developer Tools',
+      items: [
+        ['calc <expr>', 'Calculator (e.g., calc 2+2, calc sqrt(16))'],
+        ['base64 encode|decode <text>', 'Base64 encoding/decoding'],
+        ['hash sha1|sha256 <text>', 'Generate hash'],
+        ['json format|minify <json>', 'Format or minify JSON'],
+        ['color <hex>', 'Color info (e.g., color #ff0000)']
+      ]
+    },
+    system: {
+      title: '💻 System Commands',
+      items: [
+        ['ls, dir', 'List files in directory'],
+        ['cat <file>', 'Display file contents'],
+        ['cd <path>', 'Change directory'],
+        ['whoami', 'Display current user'],
+        ['history', 'Show command history'],
+        ['github', 'Show GitHub profile'],
+        ['music play|stop|next', 'Music player controls']
+      ]
+    }
   }
+
+  if (!category) {
+    // 显示简洁的总览
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('🚀 Welcome to whispin Terminal v2.0')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('📚 Available command categories:')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('  help basic   - Basic terminal commands')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('  help games   - Interactive games')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('  help tools   - Developer tools')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('  help system  - System commands')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('  help all     - Show all commands')
+    terminalOutput.value.push({ type: 'output', content: '' })
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('💡 Tip: Try "snake" for a quick game or "calc 2+2" for calculation!')
+    return
+  }
+
+  if (category === 'all') {
+    // 显示所有命令
+    for (const [, section] of Object.entries(commands)) {
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(section.title)
+      terminalOutput.value.push({ type: 'output', content: '' })
+      
+      for (const [cmd, desc] of section.items) {
+        terminalOutput.value.push({ type: 'output', content: '' })
+        await typeText(`  ${cmd.padEnd(20)} - ${desc}`, 10)
+      }
+      terminalOutput.value.push({ type: 'output', content: '' })
+    }
+    return
+  }
+
+  // 显示特定分类
+  const section = commands[category as keyof typeof commands]
+  if (!section) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid category. Use: basic, games, tools, system, or all' })
+    return
+  }
+
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText(section.title)
+  terminalOutput.value.push({ type: 'output', content: '' })
+  
+  for (const [cmd, desc] of section.items) {
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`  ${cmd.padEnd(25)} - ${desc}`, 15)
+  }
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('💡 Use "help" to see all categories or "help all" for everything.')
 }
 
 const pingCommand = async (domain: string) => {
@@ -510,6 +637,35 @@ const showDate = async () => {
 }
 
 const echoText = async (text: string) => {
+  // 检查是否在猜数字游戏中
+  if (gameState.value && gameState.value.type === 'guess') {
+    const guess = parseInt(text)
+    
+    if (isNaN(guess)) {
+      terminalOutput.value.push({ type: 'error', content: 'Please enter a valid number!' })
+      return
+    }
+    
+    gameState.value.attempts++
+    const { number, attempts, maxAttempts } = gameState.value
+    
+    if (guess === number) {
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`🎉 Congratulations! You guessed it in ${attempts} attempts!`)
+      gameState.value = null
+    } else if (attempts >= maxAttempts) {
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`💀 Game Over! The number was ${number}`)
+      gameState.value = null
+    } else {
+      const hint = guess < number ? 'Too low!' : 'Too high!'
+      const remaining = maxAttempts - attempts
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`${hint} ${remaining} attempts remaining.`)
+    }
+    return
+  }
+  
   terminalOutput.value.push({ type: 'output', content: '' })
   await typeText(text || '')
 }
@@ -629,7 +785,740 @@ const handleInput = () => {
 
 // 保持输入框聚焦
 const handleTerminalClick = () => {
-  inputRef.value?.focus()
+  if (!isResizing.value) {
+    inputRef.value?.focus()
+  }
+}
+
+// 窗口调节功能
+const startResize = (event: MouseEvent, direction: string) => {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  isResizing.value = true
+  resizeDirection.value = direction
+  resizeStartPos.value = { x: event.clientX, y: event.clientY }
+  resizeStartSize.value = { ...windowSize.value }
+  
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  document.body.style.cursor = getResizeCursor(direction)
+  document.body.style.userSelect = 'none'
+}
+
+const handleResize = (event: MouseEvent) => {
+  if (!isResizing.value) return
+  
+  const deltaX = event.clientX - resizeStartPos.value.x
+  const deltaY = event.clientY - resizeStartPos.value.y
+  
+  let newWidth = resizeStartSize.value.width
+  let newHeight = resizeStartSize.value.height
+  
+  const direction = resizeDirection.value
+  
+  if (direction.includes('e')) newWidth += deltaX
+  if (direction.includes('w')) newWidth -= deltaX
+  if (direction.includes('s')) newHeight += deltaY
+  if (direction.includes('n')) newHeight -= deltaY
+  
+  // 应用最小和最大限制
+  newWidth = Math.max(420, Math.min(1200, newWidth))
+  newHeight = Math.max(400, Math.min(800, newHeight))
+  
+  windowSize.value = { width: newWidth, height: newHeight }
+}
+
+const stopResize = () => {
+  isResizing.value = false
+  resizeDirection.value = ''
+  
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.body.style.cursor = 'default'
+  document.body.style.userSelect = 'auto'
+}
+
+const getResizeCursor = (direction: string) => {
+  const cursors: Record<string, string> = {
+    'n': 'ns-resize',
+    's': 'ns-resize',
+    'e': 'ew-resize',
+    'w': 'ew-resize',
+    'ne': 'nesw-resize',
+    'nw': 'nwse-resize',
+    'se': 'nwse-resize',
+    'sw': 'nesw-resize'
+  }
+  return cursors[direction] || 'default'
+}
+
+// 窗口大小命令
+const resizeWindow = async (args: string[]) => {
+  if (args.length === 0) {
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`Current window size: ${windowSize.value.width}x${windowSize.value.height}`)
+    terminalOutput.value.push({ type: 'info', content: 'Usage: resize <width> <height> or resize reset' })
+    return
+  }
+
+  if (args[0] === 'reset') {
+    windowSize.value = { width: 800, height: 600 }
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('Window size reset to default (800x600)')
+    return
+  }
+
+  const width = parseInt(args[0])
+  const height = parseInt(args[1])
+
+  if (isNaN(width) || isNaN(height)) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid dimensions. Use numbers for width and height.' })
+    return
+  }
+
+  if (width < 420 || width > 1200 || height < 400 || height > 800) {
+    terminalOutput.value.push({ type: 'error', content: 'Size limits: width 420-1200px, height 400-800px' })
+    return
+  }
+
+  windowSize.value = { width, height }
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText(`Window resized to ${width}x${height}`)
+}
+
+// 🔧 开发者工具
+const calculator = async (expression: string) => {
+  if (!expression) {
+    terminalOutput.value.push({ type: 'error', content: 'Usage: calc <expression>' })
+    terminalOutput.value.push({ type: 'info', content: 'Examples: calc 2+2, calc sqrt(16), calc sin(30)' })
+    return
+  }
+
+  try {
+    const sanitized = expression.replace(/[^0-9+\-*/().\s\w]/g, '')
+    let result = sanitized
+      .replace(/sqrt\(([^)]+)\)/g, 'Math.sqrt($1)')
+      .replace(/sin\(([^)]+)\)/g, 'Math.sin($1 * Math.PI / 180)')
+      .replace(/cos\(([^)]+)\)/g, 'Math.cos($1 * Math.PI / 180)')
+      .replace(/tan\(([^)]+)\)/g, 'Math.tan($1 * Math.PI / 180)')
+      .replace(/pi/g, 'Math.PI')
+      .replace(/e/g, 'Math.E')
+
+    const calculated = Function(`"use strict"; return (${result})`)()
+    
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`${expression} = ${calculated}`)
+  } catch (error) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid expression. Try: calc 2+2' })
+  }
+}
+
+const base64Tool = async (args: string[]) => {
+  const [action, ...textParts] = args
+  const text = textParts.join(' ')
+
+  if (!action || !text) {
+    terminalOutput.value.push({ type: 'error', content: 'Usage: base64 <encode|decode> <text>' })
+    return
+  }
+
+  try {
+    if (action === 'encode') {
+      const encoded = btoa(text)
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`Encoded: ${encoded}`)
+    } else if (action === 'decode') {
+      const decoded = atob(text)
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`Decoded: ${decoded}`)
+    } else {
+      terminalOutput.value.push({ type: 'error', content: 'Invalid action. Use: encode or decode' })
+    }
+  } catch (error) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid input for base64 operation' })
+  }
+}
+
+const hashTool = async (args: string[]) => {
+  const [algorithm, ...textParts] = args
+  const text = textParts.join(' ')
+
+  if (!algorithm || !text) {
+    terminalOutput.value.push({ type: 'error', content: 'Usage: hash <md5|sha1|sha256> <text>' })
+    return
+  }
+
+  try {
+    let hash = ''
+    const encoder = new TextEncoder()
+    const data = encoder.encode(text)
+
+    if (algorithm === 'sha256') {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    } else if (algorithm === 'sha1') {
+      const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    } else {
+      terminalOutput.value.push({ type: 'error', content: 'Supported algorithms: sha1, sha256' })
+      return
+    }
+
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`${algorithm.toUpperCase()}: ${hash}`)
+  } catch (error) {
+    terminalOutput.value.push({ type: 'error', content: 'Hash calculation failed' })
+  }
+}
+
+const jsonTool = async (args: string[]) => {
+  const [action, ...jsonParts] = args
+  const jsonString = jsonParts.join(' ')
+
+  if (!action || !jsonString) {
+    terminalOutput.value.push({ type: 'error', content: 'Usage: json <format|minify> <json_string>' })
+    return
+  }
+
+  try {
+    const parsed = JSON.parse(jsonString)
+    
+    if (action === 'format') {
+      const formatted = JSON.stringify(parsed, null, 2)
+      const lines = formatted.split('\n')
+      
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText('Formatted JSON:')
+      
+      for (const line of lines) {
+        terminalOutput.value.push({ type: 'output', content: '' })
+        await typeText(line, 10)
+      }
+    } else if (action === 'minify') {
+      const minified = JSON.stringify(parsed)
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`Minified: ${minified}`)
+    } else {
+      terminalOutput.value.push({ type: 'error', content: 'Invalid action. Use: format or minify' })
+    }
+  } catch (error) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid JSON format' })
+  }
+}
+
+const colorTool = async (args: string[]) => {
+  const hex = args[0]
+  
+  if (!hex) {
+    terminalOutput.value.push({ type: 'error', content: 'Usage: color <hex_color>' })
+    terminalOutput.value.push({ type: 'info', content: 'Example: color #ff0000 or color ff0000' })
+    return
+  }
+
+  try {
+    const cleanHex = hex.replace('#', '')
+    
+    if (!/^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
+      throw new Error('Invalid hex format')
+    }
+
+    const r = parseInt(cleanHex.slice(0, 2), 16)
+    const g = parseInt(cleanHex.slice(2, 4), 16)
+    const b = parseInt(cleanHex.slice(4, 6), 16)
+
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`Color Information for #${cleanHex}:`)
+    
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`RGB: rgb(${r}, ${g}, ${b})`)
+    
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`HSL: ${rgbToHsl(r, g, b)}`)
+
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`Brightness: ${brightness.toFixed(1)} (${brightness > 128 ? 'Light' : 'Dark'})`)
+    
+  } catch (error) {
+    terminalOutput.value.push({ type: 'error', content: 'Invalid hex color format. Use: #RRGGBB or RRGGBB' })
+  }
+}
+
+const rgbToHsl = (r: number, g: number, b: number): string => {
+  r /= 255
+  g /= 255
+  b /= 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0, s = 0, l = (max + min) / 2
+
+  if (max === min) {
+    h = s = 0
+  } else {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+
+  return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`
+}
+
+// 🎮 游戏功能
+let gameState = ref<any>(null)
+let gameInterval = ref<any>(null)
+let gameKeyListener = ref<any>(null)
+
+const playSnake = async () => {
+  // 清理之前的游戏
+  stopCurrentGame()
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('🐍 Starting Snake Game...')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Use WASD keys to control the snake. Press Q to quit.')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Press SPACE to start!')
+
+  // 初始化游戏状态
+  gameState.value = {
+    type: 'snake',
+    snake: [[7, 15]],
+    food: generateFood([[7, 15]]),
+    direction: 'right',
+    score: 0,
+    gameOver: false,
+    started: false
+  }
+
+  // 添加键盘监听
+  gameKeyListener.value = (event: KeyboardEvent) => {
+    if (!gameState.value || gameState.value.type !== 'snake') return
+    
+    event.preventDefault()
+    
+    if (!gameState.value.started && event.code === 'Space') {
+      startSnakeGame()
+      return
+    }
+    
+    if (!gameState.value.started) return
+    
+    const { direction } = gameState.value
+    
+    switch (event.code) {
+      case 'KeyW':
+      case 'ArrowUp':
+        if (direction !== 'down') gameState.value.direction = 'up'
+        break
+      case 'KeyS':
+      case 'ArrowDown':
+        if (direction !== 'up') gameState.value.direction = 'down'
+        break
+      case 'KeyA':
+      case 'ArrowLeft':
+        if (direction !== 'right') gameState.value.direction = 'left'
+        break
+      case 'KeyD':
+      case 'ArrowRight':
+        if (direction !== 'left') gameState.value.direction = 'right'
+        break
+      case 'KeyQ':
+        stopCurrentGame()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        typeText('Game quit. Type any command to continue.')
+        break
+    }
+  }
+  
+  document.addEventListener('keydown', gameKeyListener.value)
+  
+  await renderSnakeGame()
+}
+
+const generateFood = (snake: number[][]) => {
+  let food: number[]
+  do {
+    food = [Math.floor(Math.random() * 15), Math.floor(Math.random() * 30)]
+  } while (snake.some(([x, y]) => x === food[0] && y === food[1]))
+  return food
+}
+
+const startSnakeGame = () => {
+  if (!gameState.value) return
+  
+  gameState.value.started = true
+  
+  gameInterval.value = setInterval(() => {
+    if (!gameState.value || gameState.value.gameOver) return
+    
+    updateSnakeGame()
+  }, 200)
+}
+
+const updateSnakeGame = async () => {
+  if (!gameState.value || gameState.value.type !== 'snake') return
+  
+  const { snake, food, direction } = gameState.value
+  const head = [...snake[0]]
+  
+  // 移动蛇头
+  switch (direction) {
+    case 'up': head[0]--; break
+    case 'down': head[0]++; break
+    case 'left': head[1]--; break
+    case 'right': head[1]++; break
+  }
+  
+  // 检查碰撞
+  if (head[0] < 0 || head[0] >= 15 || head[1] < 0 || head[1] >= 30 ||
+      snake.some(([x, y]: [number, number]) => x === head[0] && y === head[1])) {
+    gameState.value.gameOver = true
+    stopCurrentGame()
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`💀 Game Over! Final Score: ${gameState.value.score}`)
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('Type "snake" to play again or any other command to continue.')
+    return
+  }
+  
+  snake.unshift(head)
+  
+  // 检查是否吃到食物
+  if (head[0] === food[0] && head[1] === food[1]) {
+    gameState.value.score += 10
+    gameState.value.food = generateFood(snake)
+  } else {
+    snake.pop()
+  }
+  
+  await renderSnakeGame()
+}
+
+const renderSnakeGame = async () => {
+  if (!gameState.value || gameState.value.type !== 'snake') return
+
+  const { snake, food, score, started } = gameState.value
+  
+  // 清除之前的游戏画面（保留最近几行输出）
+  const keepLines = terminalOutput.value.slice(0, -20)
+  terminalOutput.value.splice(0, terminalOutput.value.length, ...keepLines)
+  
+  let board = Array(15).fill(null).map(() => Array(30).fill('·'))
+
+  snake.forEach(([x, y]: [number, number], index: number) => {
+    if (x >= 0 && x < 15 && y >= 0 && y < 30) {
+      board[x][y] = index === 0 ? '●' : '█'
+    }
+  })
+
+  if (food[0] >= 0 && food[0] < 15 && food[1] >= 0 && food[1] < 30) {
+    board[food[0]][food[1]] = '🍎'
+  }
+
+  terminalOutput.value.push({ type: 'output', content: '' })
+  terminalOutput.value.push({ type: 'output', content: `Score: ${score} | ${started ? 'Use WASD to move, Q to quit' : 'Press SPACE to start'}` })
+  terminalOutput.value.push({ type: 'output', content: '┌' + '─'.repeat(30) + '┐' })
+  
+  for (const row of board) {
+    terminalOutput.value.push({ type: 'output', content: '│' + row.join('') + '│' })
+  }
+  
+  terminalOutput.value.push({ type: 'output', content: '└' + '─'.repeat(30) + '┘' })
+}
+
+const stopCurrentGame = () => {
+  if (gameInterval.value) {
+    clearInterval(gameInterval.value)
+    gameInterval.value = null
+  }
+  
+  if (gameKeyListener.value) {
+    document.removeEventListener('keydown', gameKeyListener.value)
+    gameKeyListener.value = null
+  }
+  
+  gameState.value = null
+}
+
+const play2048 = async () => {
+  // 清理之前的游戏
+  stopCurrentGame()
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('🎮 Starting 2048 Game...')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Use WASD keys to move tiles. Press Q to quit.')
+  
+  const board = Array(4).fill(null).map(() => Array(4).fill(0))
+  
+  gameState.value = {
+    type: '2048',
+    board,
+    score: 0,
+    gameOver: false
+  }
+
+  // 添加两个初始数字
+  addNewTile()
+  addNewTile()
+
+  // 添加键盘监听
+  gameKeyListener.value = (event: KeyboardEvent) => {
+    if (!gameState.value || gameState.value.type !== '2048') return
+    
+    event.preventDefault()
+    
+    let moved = false
+    const newBoard = gameState.value.board.map((row: number[]) => [...row])
+    
+    switch (event.code) {
+      case 'KeyW':
+      case 'ArrowUp':
+        moved = move2048Up(newBoard)
+        break
+      case 'KeyS':
+      case 'ArrowDown':
+        moved = move2048Down(newBoard)
+        break
+      case 'KeyA':
+      case 'ArrowLeft':
+        moved = move2048Left(newBoard)
+        break
+      case 'KeyD':
+      case 'ArrowRight':
+        moved = move2048Right(newBoard)
+        break
+      case 'KeyQ':
+        stopCurrentGame()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        typeText('Game quit. Type any command to continue.')
+        return
+    }
+    
+    if (moved) {
+      gameState.value.board = newBoard
+      addNewTile()
+      
+      if (checkGameOver2048()) {
+        gameState.value.gameOver = true
+        stopCurrentGame()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        typeText(`🎮 Game Over! Final Score: ${gameState.value.score}`)
+        terminalOutput.value.push({ type: 'output', content: '' })
+        typeText('Type "2048" to play again or any other command to continue.')
+      } else {
+        render2048Game()
+      }
+    }
+  }
+  
+  document.addEventListener('keydown', gameKeyListener.value)
+
+  await render2048Game()
+}
+
+const addNewTile = () => {
+  if (!gameState.value) return
+  
+  const emptyCells: number[][] = []
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (gameState.value.board[i][j] === 0) {
+        emptyCells.push([i, j])
+      }
+    }
+  }
+  
+  if (emptyCells.length > 0) {
+    const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)]
+    gameState.value.board[randomCell[0]][randomCell[1]] = Math.random() < 0.9 ? 2 : 4
+  }
+}
+
+const move2048Left = (board: number[][]) => {
+  let moved = false
+  for (let i = 0; i < 4; i++) {
+    const row = board[i].filter(val => val !== 0)
+    for (let j = 0; j < row.length - 1; j++) {
+      if (row[j] === row[j + 1]) {
+        row[j] *= 2
+        gameState.value.score += row[j]
+        row.splice(j + 1, 1)
+      }
+    }
+    while (row.length < 4) row.push(0)
+    
+    for (let j = 0; j < 4; j++) {
+      if (board[i][j] !== row[j]) moved = true
+      board[i][j] = row[j]
+    }
+  }
+  return moved
+}
+
+const move2048Right = (board: number[][]) => {
+  let moved = false
+  for (let i = 0; i < 4; i++) {
+    const row = board[i].filter(val => val !== 0)
+    for (let j = row.length - 1; j > 0; j--) {
+      if (row[j] === row[j - 1]) {
+        row[j] *= 2
+        gameState.value.score += row[j]
+        row.splice(j - 1, 1)
+        j--
+      }
+    }
+    while (row.length < 4) row.unshift(0)
+    
+    for (let j = 0; j < 4; j++) {
+      if (board[i][j] !== row[j]) moved = true
+      board[i][j] = row[j]
+    }
+  }
+  return moved
+}
+
+const move2048Up = (board: number[][]) => {
+  let moved = false
+  for (let j = 0; j < 4; j++) {
+    const column = []
+    for (let i = 0; i < 4; i++) {
+      if (board[i][j] !== 0) column.push(board[i][j])
+    }
+    
+    for (let i = 0; i < column.length - 1; i++) {
+      if (column[i] === column[i + 1]) {
+        column[i] *= 2
+        gameState.value.score += column[i]
+        column.splice(i + 1, 1)
+      }
+    }
+    
+    while (column.length < 4) column.push(0)
+    
+    for (let i = 0; i < 4; i++) {
+      if (board[i][j] !== column[i]) moved = true
+      board[i][j] = column[i]
+    }
+  }
+  return moved
+}
+
+const move2048Down = (board: number[][]) => {
+  let moved = false
+  for (let j = 0; j < 4; j++) {
+    const column = []
+    for (let i = 0; i < 4; i++) {
+      if (board[i][j] !== 0) column.push(board[i][j])
+    }
+    
+    for (let i = column.length - 1; i > 0; i--) {
+      if (column[i] === column[i - 1]) {
+        column[i] *= 2
+        gameState.value.score += column[i]
+        column.splice(i - 1, 1)
+        i--
+      }
+    }
+    
+    while (column.length < 4) column.unshift(0)
+    
+    for (let i = 0; i < 4; i++) {
+      if (board[i][j] !== column[i]) moved = true
+      board[i][j] = column[i]
+    }
+  }
+  return moved
+}
+
+const checkGameOver2048 = () => {
+  if (!gameState.value) return true
+  
+  const board = gameState.value.board
+  
+  // 检查是否有空格
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (board[i][j] === 0) return false
+    }
+  }
+  
+  // 检查是否可以合并
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if ((i < 3 && board[i][j] === board[i + 1][j]) ||
+          (j < 3 && board[i][j] === board[i][j + 1])) {
+        return false
+      }
+    }
+  }
+  
+  return true
+}
+
+const render2048Game = async () => {
+  if (!gameState.value || gameState.value.type !== '2048') return
+
+  const { board, score } = gameState.value
+  
+  // 清除之前的游戏画面
+  const keepLines = terminalOutput.value.slice(0, -10)
+  terminalOutput.value.splice(0, terminalOutput.value.length, ...keepLines)
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  terminalOutput.value.push({ type: 'output', content: `Score: ${score} | Use WASD to move, Q to quit` })
+  terminalOutput.value.push({ type: 'output', content: '┌────┬────┬────┬────┐' })
+  
+  for (let i = 0; i < 4; i++) {
+    let row = '│'
+    for (let j = 0; j < 4; j++) {
+      const val = board[i][j] || ''
+      row += val.toString().padStart(4, ' ') + '│'
+    }
+    terminalOutput.value.push({ type: 'output', content: row })
+    
+    if (i < 3) {
+      terminalOutput.value.push({ type: 'output', content: '├────┼────┼────┼────┤' })
+    }
+  }
+  
+  terminalOutput.value.push({ type: 'output', content: '└────┴────┴────┴────┘' })
+}
+
+const playGuessNumber = async () => {
+  const randomNumber = Math.floor(Math.random() * 100) + 1
+  
+  gameState.value = {
+    type: 'guess',
+    number: randomNumber,
+    attempts: 0,
+    maxAttempts: 7
+  }
+
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('🎯 Number Guessing Game!')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('I\'m thinking of a number between 1 and 100.')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('You have 7 attempts. Type your guess as a command!')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Example: echo 42')
 }
 </script>
 
@@ -637,9 +1526,53 @@ const handleTerminalClick = () => {
   <div class="min-h-screen bg-gray-800 flex items-center justify-center p-4">
     <!-- 终端窗口 -->
     <div
-        class="terminal-window border border-white font-arial min-w-[420px] max-w-4xl w-full"
+        class="terminal-window border border-white font-arial relative"
+        :style="{
+          width: windowSize.width + 'px',
+          height: windowSize.height + 'px',
+          minWidth: '420px',
+          minHeight: '400px',
+          maxWidth: '1200px',
+          maxHeight: '800px'
+        }"
         @click="handleTerminalClick"
     >
+      <!-- 拖拽句柄 - 角落 -->
+      <div 
+        class="absolute -top-1 -left-1 w-3 h-3 cursor-nwse-resize"
+        @mousedown="startResize($event, 'nw')"
+      ></div>
+      <div 
+        class="absolute -top-1 -right-1 w-3 h-3 cursor-nesw-resize"
+        @mousedown="startResize($event, 'ne')"
+      ></div>
+      <div 
+        class="absolute -bottom-1 -left-1 w-3 h-3 cursor-nesw-resize"
+        @mousedown="startResize($event, 'sw')"
+      ></div>
+      <div 
+        class="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize"
+        @mousedown="startResize($event, 'se')"
+      ></div>
+      
+      <!-- 拖拽句柄 - 边缘 -->
+      <div 
+        class="absolute -top-1 left-3 right-3 h-2 cursor-ns-resize"
+        @mousedown="startResize($event, 'n')"
+      ></div>
+      <div 
+        class="absolute -bottom-1 left-3 right-3 h-2 cursor-ns-resize"
+        @mousedown="startResize($event, 's')"
+      ></div>
+      <div 
+        class="absolute -left-1 top-3 bottom-3 w-2 cursor-ew-resize"
+        @mousedown="startResize($event, 'w')"
+      ></div>
+      <div 
+        class="absolute -right-1 top-3 bottom-3 w-2 cursor-ew-resize"
+        @mousedown="startResize($event, 'e')"
+      ></div>
+
       <!-- 标题栏 -->
       <div class="terminal-header bg-[#c8c8c8] px-2 py-1.5 flex justify-between items-center">
         <span class="text-black pointer-events-none text-sm">C:\Windows\system32\cmd.exe</span>
@@ -653,10 +1586,13 @@ const handleTerminalClick = () => {
       <!-- 终端内容 -->
       <div
           :class="[
-          'terminal-content font-mono p-3 h-96 overflow-y-auto',
+          'terminal-content font-mono p-3 overflow-y-auto',
           themeClasses.bg,
           themeClasses.text
         ]"
+        :style="{
+          height: (windowSize.height - 40) + 'px'
+        }"
       >
         <!-- 终端输出历史 -->
         <div v-for="(line, index) in terminalOutput" :key="index" class="leading-tight">
@@ -699,11 +1635,45 @@ const handleTerminalClick = () => {
   position: relative;
   margin: 0;
   font-family: Arial, sans-serif;
+  transition: none;
 }
 
 .terminal-content {
   font-family: 'Courier New', Courier, monospace;
   min-width: 420px;
+}
+
+/* 拖拽句柄样式 */
+.terminal-window > div[class*="absolute"] {
+  background: transparent;
+  z-index: 10;
+}
+
+.terminal-window > div[class*="absolute"]:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 角落拖拽句柄更明显 */
+.terminal-window > div[class*="cursor-nwse-resize"],
+.terminal-window > div[class*="cursor-nesw-resize"] {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* 边缘拖拽句柄 */
+.terminal-window > div[class*="cursor-ns-resize"] {
+  height: 4px;
+}
+
+.terminal-window > div[class*="cursor-ew-resize"] {
+  width: 4px;
+}
+
+/* 防止用户选择 */
+.terminal-window.resizing * {
+  user-select: none;
+  pointer-events: none;
 }
 
 /* 滚动条样式 */
@@ -731,5 +1701,23 @@ input {
 
 input:focus {
   outline: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .terminal-window {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    min-width: 320px !important;
+  }
+  
+  .terminal-content {
+    min-width: 320px;
+  }
+  
+  /* 移动设备上隐藏拖拽句柄 */
+  .terminal-window > div[class*="absolute"] {
+    display: none;
+  }
 }
 </style>
