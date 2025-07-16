@@ -117,6 +117,10 @@ const initThreeJS = () => {
     createParticleSystem()
     console.log('Particle system created')
     
+    // 设置鼠标交互
+    setupMouseInteraction()
+    console.log('Mouse interaction setup')
+    
     // 开始动画循环
     animate()
     console.log('Animation started')
@@ -130,83 +134,271 @@ const initThreeJS = () => {
   }
 }
 
-// 创建3D粒子系统（简化版）
+// 创建增强3D粒子系统
 const createParticleSystem = () => {
-  const particleCount = window.innerWidth < 640 ? 1000 : 2000
+  const particleCount = window.innerWidth < 640 ? 1500 : 3000 // 增加粒子数量
   const positions = new Float32Array(particleCount * 3)
   const colors = new Float32Array(particleCount * 3)
   const sizes = new Float32Array(particleCount)
+  const velocities = new Float32Array(particleCount * 3)
+  const phases = new Float32Array(particleCount)
+  const depths = new Float32Array(particleCount)
+  const orbitalSpeeds = new Float32Array(particleCount)
 
-  // 科技感宇宙色调色板
+  // 增强的科技感宇宙色调色板
   const colorPalette = [
-    new THREE.Color(0.95, 0.95, 1),      // 纯白星光
-    new THREE.Color(0.2, 0.8, 1),        // 电子蓝
-    new THREE.Color(0.8, 0.3, 1),        // 霓虹紫
-    new THREE.Color(0.1, 0.9, 0.9),      // 青色光芒
-    new THREE.Color(0.3, 1, 0.3),        // 矩阵绿
+    new THREE.Color(1.0, 1.0, 1.0),      // 纯白星光
+    new THREE.Color(0.1, 0.8, 1.0),      // 电子蓝
+    new THREE.Color(0.9, 0.2, 1.0),      // 霓虹紫
+    new THREE.Color(0.0, 1.0, 0.8),      // 青色光芒
+    new THREE.Color(0.2, 1.0, 0.2),      // 矩阵绿
+    new THREE.Color(1.0, 0.4, 0.1),      // 能量橙
+    new THREE.Color(0.8, 0.1, 0.8),      // 深紫色
+    new THREE.Color(0.1, 0.9, 1.0),      // 天蓝色
   ]
 
   for (let i = 0; i < particleCount; i++) {
     const i3 = i * 3
 
-    // 创建球形分布的粒子
-    const radius = Math.random() * 80 + 20
-    const theta = Math.random() * Math.PI * 2
-    const phi = Math.acos(Math.random() * 2 - 1)
+    // 创建多层3D分布
+    const layerType = Math.random()
+    let radius, depthFactor, x, y, z
 
-    positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
-    positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
-    positions[i3 + 2] = radius * Math.cos(phi)
+    if (layerType < 0.3) {
+      // 30% 近景层 - 大而亮的粒子
+      radius = Math.random() * 30 + 10
+      depthFactor = 1.0
+      
+      // 创建螺旋臂结构
+      const armIndex = Math.floor(Math.random() * 4)
+      const armAngle = (armIndex / 4) * Math.PI * 2
+      const spiralAngle = armAngle + radius * 0.1
+      
+      x = radius * Math.cos(spiralAngle) + (Math.random() - 0.5) * 10
+      y = (Math.random() - 0.5) * 20
+      z = radius * Math.sin(spiralAngle) + (Math.random() - 0.5) * 10
+    } else if (layerType < 0.6) {
+      // 30% 中景层 - 中等粒子
+      radius = Math.random() * 60 + 30
+      depthFactor = 0.7
+      
+      // 创建环形结构
+      const ringAngle = Math.random() * Math.PI * 2
+      const ringRadius = radius + Math.sin(ringAngle * 3) * 15
+      
+      x = ringRadius * Math.cos(ringAngle)
+      y = (Math.random() - 0.5) * 40 + Math.sin(ringAngle * 2) * 10
+      z = ringRadius * Math.sin(ringAngle)
+    } else {
+      // 40% 远景层 - 小而密集的粒子
+      radius = Math.random() * 120 + 60
+      depthFactor = 0.4
+      
+      // 创建球形星云
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(Math.random() * 2 - 1)
+      
+      x = radius * Math.sin(phi) * Math.cos(theta)
+      y = radius * Math.sin(phi) * Math.sin(theta)
+      z = radius * Math.cos(phi)
+    }
 
-    // 随机颜色
-    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)]
-    colors[i3] = color.r
-    colors[i3 + 1] = color.g
-    colors[i3 + 2] = color.b
+    positions[i3] = x
+    positions[i3 + 1] = y
+    positions[i3 + 2] = z
 
-    // 随机大小
-    sizes[i] = Math.random() * 4 + 1
+    // 基于深度和位置的颜色选择
+    const distanceFromCenter = Math.sqrt(x*x + y*y + z*z) / 120
+    let colorIndex
+    
+    if (depthFactor > 0.8) {
+      // 近景 - 更亮更多样的颜色
+      colorIndex = Math.floor(Math.random() * colorPalette.length)
+    } else if (depthFactor > 0.5) {
+      // 中景 - 偏蓝紫色
+      colorIndex = Math.floor(Math.random() * 4) + 1
+    } else {
+      // 远景 - 主要是蓝白色
+      colorIndex = Math.random() < 0.7 ? 0 : 1
+    }
+    
+    const color = colorPalette[colorIndex]
+    const brightness = depthFactor * (1.2 - distanceFromCenter * 0.3)
+    colors[i3] = color.r * brightness
+    colors[i3 + 1] = color.g * brightness
+    colors[i3 + 2] = color.b * brightness
+
+    // 基于深度的大小分配
+    const baseSize = depthFactor * (2.5 - distanceFromCenter * 0.5)
+    const sizeVariation = Math.random()
+    
+    if (sizeVariation < 0.1) {
+      // 10% 超大粒子（恒星）
+      sizes[i] = baseSize * (Math.random() * 8 + 6)
+    } else if (sizeVariation < 0.3) {
+      // 20% 大粒子
+      sizes[i] = baseSize * (Math.random() * 4 + 3)
+    } else if (sizeVariation < 0.7) {
+      // 40% 中等粒子
+      sizes[i] = baseSize * (Math.random() * 2.5 + 1.5)
+    } else {
+      // 30% 小粒子
+      sizes[i] = baseSize * (Math.random() * 1.5 + 0.5)
+    }
+
+    // 3D运动速度 - 基于轨道运动
+    const orbitalSpeed = (1.5 - depthFactor) * 0.8 + 0.2
+    velocities[i3] = (Math.random() - 0.5) * 0.02 * orbitalSpeed
+    velocities[i3 + 1] = (Math.random() - 0.5) * 0.01 * orbitalSpeed
+    velocities[i3 + 2] = (Math.random() - 0.5) * 0.02 * orbitalSpeed
+
+    // 随机相位和轨道速度
+    phases[i] = Math.random() * Math.PI * 2
+    depths[i] = depthFactor
+    orbitalSpeeds[i] = orbitalSpeed
   }
 
-  // 创建几何体
+  // 创建几何体并添加所有属性
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
   geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+  geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3))
+  geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1))
+  geometry.setAttribute('depth', new THREE.BufferAttribute(depths, 1))
+  geometry.setAttribute('orbitalSpeed', new THREE.BufferAttribute(orbitalSpeeds, 1))
 
-  // 创建粒子材质
+  // 创建增强3D粒子材质
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      time: { value: 0 }
+      time: { value: 0 },
+      mouse: { value: new THREE.Vector2() },
+      cameraPosition: { value: new THREE.Vector3() }
     },
     vertexShader: `
       attribute float size;
+      attribute vec3 velocity;
+      attribute float phase;
+      attribute float depth;
+      attribute float orbitalSpeed;
+      
       varying vec3 vColor;
+      varying float vTwinkle;
+      varying float vDepth;
+      varying vec3 vWorldPosition;
+      varying float vDistanceToCamera;
+      
       uniform float time;
+      uniform vec2 mouse;
+      uniform vec3 cameraPosition;
       
       void main() {
         vColor = color;
+        vDepth = depth;
         
         vec3 pos = position;
         
-        // 简单的旋转动画
-        float angle = time * 0.5;
-        float cosA = cos(angle);
-        float sinA = sin(angle);
+        // 复杂的3D轨道运动
+        float orbitTime = time * orbitalSpeed * 0.3;
         
-        float newX = pos.x * cosA - pos.z * sinA;
-        float newZ = pos.x * sinA + pos.z * cosA;
-        pos.x = newX;
-        pos.z = newZ;
+        // 主轨道旋转（绕Y轴）
+        float mainOrbit = orbitTime;
+        float cosMain = cos(mainOrbit);
+        float sinMain = sin(mainOrbit);
         
-        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        vec3 orbitPos = vec3(
+          pos.x * cosMain - pos.z * sinMain,
+          pos.y,
+          pos.x * sinMain + pos.z * cosMain
+        );
+        
+        // 次级轨道运动（绕X轴）
+        float subOrbit = orbitTime * 0.7 + phase;
+        float cosSubX = cos(subOrbit);
+        float sinSubX = sin(subOrbit);
+        
+        orbitPos = vec3(
+          orbitPos.x,
+          orbitPos.y * cosSubX - orbitPos.z * sinSubX,
+          orbitPos.y * sinSubX + orbitPos.z * cosSubX
+        );
+        
+        // 第三级微调运动（绕Z轴）
+        float microOrbit = orbitTime * 1.3 + phase * 2.0;
+        float cosMicro = cos(microOrbit);
+        float sinMicro = sin(microOrbit);
+        
+        orbitPos = vec3(
+          orbitPos.x * cosMicro - orbitPos.y * sinMicro,
+          orbitPos.x * sinMicro + orbitPos.y * cosMicro,
+          orbitPos.z
+        );
+        
+        // 添加速度偏移
+        orbitPos += velocity * time * 20.0 * depth;
+        
+        // 呼吸效果 - 基于深度的不同频率
+        float breathFreq = 1.0 + depth * 2.0;
+        float breathAmp = depth * 5.0;
+        float breath = sin(time * breathFreq + phase) * breathAmp;
+        orbitPos += normalize(orbitPos) * breath;
+        
+        // 鼠标交互 - 3D视差效果
+        vec2 mouseInfluence = mouse * depth * 2.0;
+        float mouseDistance = length(mouse);
+        float mouseEffect = smoothstep(0.0, 1.0, mouseDistance) * depth;
+        
+        orbitPos.x += sin(time * 0.8 + orbitPos.y * 0.02) * mouseInfluence.x * mouseEffect;
+        orbitPos.y += cos(time * 0.8 + orbitPos.x * 0.02) * mouseInfluence.y * mouseEffect;
+        orbitPos.z += sin(time * 0.5 + orbitPos.x * 0.01) * mouseInfluence.x * mouseEffect * 0.5;
+        
+        // 计算世界位置和相机距离
+        vec4 worldPosition = modelMatrix * vec4(orbitPos, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        vDistanceToCamera = distance(worldPosition.xyz, cameraPosition);
+        
+        // 多层次闪烁系统
+        float baseSpeed = 0.8 + sin(phase) * 1.5;
+        float twinkleSpeed = baseSpeed * (1.0 + depth * 2.0);
+        float twinkleCycle = sin(time * twinkleSpeed + phase) * 0.6 + 0.4;
+        
+        // 深度相关的强闪烁
+        float depthTwinkle = step(0.85 - depth * 0.3, sin(time * 0.7 + phase * 3.0)) * (2.0 + depth * 4.0);
+        
+        // 超新星效果
+        float supernovaChance = 0.995 + depth * 0.004;
+        float supernova = step(supernovaChance, sin(time * 0.15 + phase * 7.0)) * (8.0 + depth * 12.0);
+        
+        // 脉冲星效果
+        float pulsarEffect = sin(time * 4.0 + phase * 2.0) * 0.3 + 0.7;
+        pulsarEffect *= step(0.92, sin(phase * 10.0)) * depth;
+        
+        // 距离相关的闪烁
+        float distanceTwinkle = sin(time * 2.0 + vDistanceToCamera * 0.01) * 0.2 + 0.8;
+        
+        vTwinkle = twinkleCycle + depthTwinkle + supernova + pulsarEffect;
+        vTwinkle *= distanceTwinkle;
+        vTwinkle = clamp(vTwinkle, 0.05, 15.0);
+        
+        vec4 mvPosition = modelViewMatrix * vec4(orbitPos, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         
-        gl_PointSize = size * (300.0 / -mvPosition.z);
+        // 3D透视大小计算
+        float perspectiveSize = 500.0 / -mvPosition.z;
+        float depthSize = size * (0.5 + depth * 1.5);
+        float twinkleSize = 0.8 + vTwinkle * 0.3;
+        float distanceSize = 1.0 + (100.0 / max(vDistanceToCamera, 10.0));
+        
+        gl_PointSize = depthSize * twinkleSize * perspectiveSize * distanceSize;
       }
     `,
     fragmentShader: `
       varying vec3 vColor;
+      varying float vTwinkle;
+      varying float vDepth;
+      varying vec3 vWorldPosition;
+      varying float vDistanceToCamera;
+      
       uniform float time;
       
       void main() {
@@ -215,15 +407,60 @@ const createParticleSystem = () => {
         
         if (dist > 0.5) discard;
         
-        // 创建发光效果
-        float alpha = 1.0 - (dist * 2.0);
-        alpha = pow(alpha, 2.0);
+        // 多层3D发光系统
+        float coreGlow = 1.0 - smoothstep(0.0, 0.1, dist);
+        float innerGlow = 1.0 - smoothstep(0.0, 0.3, dist);
+        float outerGlow = 1.0 - smoothstep(0.0, 0.5, dist);
         
-        // 闪烁效果
-        float twinkle = sin(time * 3.0 + gl_FragCoord.x * 0.1) * 0.3 + 0.7;
-        alpha *= twinkle;
+        // 基于深度的发光强度
+        float depthGlow = vDepth * 2.5 + 0.3;
         
-        gl_FragColor = vec4(vColor, alpha);
+        // 距离雾化效果
+        float distanceFog = 1.0 - smoothstep(50.0, 200.0, vDistanceToCamera);
+        
+        // 组合多层发光效果
+        float alpha = coreGlow * 2.0 + innerGlow * 1.2 + outerGlow * 0.6;
+        alpha *= depthGlow * distanceFog;
+        
+        // 增强的闪烁系统
+        alpha *= vTwinkle;
+        
+        // 3D科技感脉冲效果
+        float techPulse = sin(time * 8.0 + length(vWorldPosition) * 0.05) * 0.2 + 0.8;
+        float energyWave = sin(time * 3.0 + dist * 15.0 + vDistanceToCamera * 0.1) * 0.15 + 0.85;
+        alpha *= techPulse * energyWave;
+        
+        // 颜色增强 - 基于深度、距离和闪烁
+        vec3 enhancedColor = vColor;
+        
+        // 近景粒子颜色增强
+        if (vDepth > 0.8) {
+          enhancedColor *= 1.0 + vTwinkle * 0.8;
+          // 3D能量光环效果
+          float energyRing = smoothstep(0.15, 0.2, dist) * smoothstep(0.4, 0.35, dist);
+          enhancedColor += energyRing * vec3(0.3, 0.8, 1.0) * vTwinkle;
+        }
+        // 中景粒子添加科技感
+        else if (vDepth > 0.5) {
+          enhancedColor *= 1.0 + vTwinkle * 0.5;
+          // 3D数据流效果
+          float dataStream = sin(time * 12.0 + vWorldPosition.x * 0.3 + vWorldPosition.z * 0.2) * 0.3 + 0.7;
+          enhancedColor *= dataStream;
+        }
+        // 远景粒子保持神秘感
+        else {
+          enhancedColor *= 0.8 + vTwinkle * 0.3;
+          // 深空3D辉光
+          float deepGlow = sin(time * 2.0 + length(vWorldPosition) * 0.01) * 0.2 + 0.8;
+          enhancedColor *= deepGlow;
+        }
+        
+        // 距离相关的颜色调整
+        float distanceColorShift = smoothstep(0.0, 100.0, vDistanceToCamera);
+        enhancedColor = mix(enhancedColor, enhancedColor * vec3(0.7, 0.8, 1.0), distanceColorShift * 0.3);
+        
+        // 最终颜色输出
+        gl_FragColor = vec4(enhancedColor, alpha * 1.8);
       }
     `,
     transparent: true,
@@ -237,14 +474,54 @@ const createParticleSystem = () => {
   scene.add(particleSystem)
 }
 
+// 鼠标交互设置
+let mouse = { x: 0, y: 0 }
+const setupMouseInteraction = () => {
+  const handleMouseMove = (event: MouseEvent) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+  }
+  
+  window.addEventListener('mousemove', handleMouseMove)
+}
+
 // 动画循环
 const animate = () => {
   animationId = requestAnimationFrame(animate)
   
   time = Date.now() * 0.001
   
-  if (particleSystem) {
-    (particleSystem.material as THREE.ShaderMaterial).uniforms.time.value = time
+  if (particleSystem && particleSystem.material) {
+    const material = particleSystem.material as THREE.ShaderMaterial
+    
+    // 更新时间
+    material.uniforms.time.value = time
+    
+    // 更新鼠标位置
+    material.uniforms.mouse.value.set(mouse.x, mouse.y)
+    
+    // 更新相机位置
+    material.uniforms.cameraPosition.value.copy(camera.position)
+    
+    // 3D相机运动 - 创造深邃的空间感
+    const cameraRadius = 8
+    const cameraSpeed = 0.1
+    camera.position.x = Math.sin(time * cameraSpeed) * cameraRadius * 0.3
+    camera.position.y = Math.cos(time * cameraSpeed * 0.7) * cameraRadius * 0.2
+    camera.position.z = 5 + Math.sin(time * cameraSpeed * 0.5) * 2
+    
+    // 相机始终看向场景中心，但有轻微的偏移
+    const lookAtOffset = new THREE.Vector3(
+      Math.sin(time * 0.3) * 2,
+      Math.cos(time * 0.2) * 1,
+      0
+    )
+    camera.lookAt(lookAtOffset)
+    
+    // 粒子系统整体旋转
+    particleSystem.rotation.y += 0.002
+    particleSystem.rotation.x += 0.001
+    particleSystem.rotation.z += 0.0005
   }
   
   renderer.render(scene, camera)
