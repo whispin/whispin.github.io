@@ -393,13 +393,7 @@ const showStartupInfo = async () => {
   terminalOutput.value.push({ type: 'info', content: '' })
 }
 
-// 可用命令列表
-const availableCommands = [
-  'help', 'clear', 'cls', 'ls', 'cat', 'theme', 'gh', 'about',
-  'projects', 'contact', 'echo', 'date', 'time', 'pwd', 'cd',
-  'mkdir', 'touch', 'music', 'calc', 'snake', '2048', 'guess',
-  'base64', 'hash', 'json', 'color', 'whoami', 'history', 'ping'
-]
+
 
 // 虚拟文件系统
 interface FileSystemItem {
