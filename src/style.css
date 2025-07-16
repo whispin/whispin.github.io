@@ -18,3 +18,296 @@ body {
     min-width: 320px;
     min-height: 100vh;
 }
+/*
+ 增强的星空粒子CSS效果 */
+
+/* 基础粒子样式 */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(var(--particle-color), 1) 0%,
+    rgba(var(--particle-color), 0.8) 30%,
+    rgba(var(--particle-glow), 0.4) 60%,
+    transparent 100%
+  );
+  
+  /* 多重阴影创造深邃发光效果 */
+  box-shadow: 
+    0 0 6px rgba(var(--particle-color), 0.8),
+    0 0 12px rgba(var(--particle-glow), 0.6),
+    0 0 18px rgba(var(--particle-glow), 0.4),
+    0 0 24px rgba(var(--particle-glow), 0.2);
+  
+  /* 复合动画 */
+  animation: 
+    starFloat var(--float-duration, 25s) ease-in-out infinite,
+    starTwinkle var(--glow-duration, 8s) ease-in-out infinite var(--glow-delay, 0s),
+    starPulse var(--pulse-duration, 6s) ease-in-out infinite,
+    starScale var(--scale-duration, 12s) ease-in-out infinite;
+}
+
+/* 不同大小粒子的特殊效果 */
+.particle-small {
+  --float-duration: 30s;
+  filter: blur(0.5px);
+}
+
+.particle-medium {
+  --float-duration: 25s;
+  filter: blur(0.3px);
+}
+
+.particle-large {
+  --float-duration: 20s;
+  filter: blur(0.2px);
+  position: relative;
+}
+
+.particle-large::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(var(--particle-glow), 0.1) 50%,
+    rgba(var(--particle-glow), 0.2) 60%,
+    transparent 70%
+  );
+  animation: energyRing 8s ease-in-out infinite;
+}
+
+/* 星空漂浮动画 */
+@keyframes starFloat {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(10px, -15px) rotate(90deg);
+  }
+  50% {
+    transform: translate(-5px, 10px) rotate(180deg);
+  }
+  75% {
+    transform: translate(-15px, -5px) rotate(270deg);
+  }
+}
+
+/* 星星闪烁动画 */
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.3;
+    box-shadow: 
+      0 0 6px rgba(var(--particle-color), 0.3),
+      0 0 12px rgba(var(--particle-glow), 0.2);
+  }
+  25% {
+    opacity: 0.8;
+    box-shadow: 
+      0 0 8px rgba(var(--particle-color), 0.8),
+      0 0 16px rgba(var(--particle-glow), 0.6),
+      0 0 24px rgba(var(--particle-glow), 0.4);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 
+      0 0 12px rgba(var(--particle-color), 1),
+      0 0 24px rgba(var(--particle-glow), 0.8),
+      0 0 36px rgba(var(--particle-glow), 0.6),
+      0 0 48px rgba(var(--particle-glow), 0.3);
+  }
+  75% {
+    opacity: 0.6;
+    box-shadow: 
+      0 0 10px rgba(var(--particle-color), 0.6),
+      0 0 20px rgba(var(--particle-glow), 0.4);
+  }
+}
+
+/* 脉冲动画 */
+@keyframes starPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* 缩放呼吸动画 */
+@keyframes starScale {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  33% {
+    transform: scale(0.8) rotate(120deg);
+  }
+  66% {
+    transform: scale(1.1) rotate(240deg);
+  }
+}
+
+/* 能量环动画 */
+@keyframes energyRing {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.2) rotate(180deg);
+  }
+}
+
+/* 科技感扫描线效果 */
+.tech-scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    transparent 50%,
+    rgba(0, 255, 255, 0.02) 50%
+  );
+  background-size: 100% 4px;
+  animation: scanlines 0.1s linear infinite;
+}
+
+@keyframes scanlines {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 4px;
+  }
+}
+
+/* 深空雾化效果 */
+.deep-space-fog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    rgba(0, 20, 40, 0.1) 40%,
+    rgba(0, 10, 30, 0.2) 70%,
+    rgba(0, 5, 20, 0.3) 100%
+  );
+  animation: deepFog 30s ease-in-out infinite;
+}
+
+@keyframes deepFog {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+/* 星云效果 */
+.nebula-effect {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    radial-gradient(ellipse 800px 400px at 20% 30%, rgba(100, 0, 200, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 600px 300px at 80% 70%, rgba(0, 100, 200, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 400px 600px at 60% 20%, rgba(200, 0, 100, 0.06) 0%, transparent 50%);
+  animation: nebulaFlow 60s ease-in-out infinite;
+}
+
+@keyframes nebulaFlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    opacity: 0.6;
+    transform: rotate(120deg) scale(1.1);
+  }
+  66% {
+    opacity: 0.5;
+    transform: rotate(240deg) scale(0.9);
+  }
+}
+
+/* 响应式优化 */
+@media (max-width: 640px) {
+  .particle {
+    animation-duration: 40s, 12s, 8s, 16s;
+  }
+  
+  .tech-scanlines {
+    opacity: 0.5;
+  }
+  
+  .nebula-effect {
+    opacity: 0.3;
+  }
+}
+
+/* 高性能设备增强效果 */
+@media (min-width: 1920px) {
+  .particle-large::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: -100%;
+    width: 300%;
+    height: 300%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      transparent 60%,
+      rgba(var(--particle-glow), 0.05) 70%,
+      rgba(var(--particle-glow), 0.1) 80%,
+      transparent 90%
+    );
+    animation: superGlow 15s ease-in-out infinite;
+  }
+}
+
+@keyframes superGlow {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.5);
+  }
+}
+
+/* 测试脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
