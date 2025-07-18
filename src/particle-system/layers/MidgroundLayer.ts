@@ -10,16 +10,21 @@ export class MidgroundLayer extends ParticleLayer {
     const sizeRange: [number, number] = [2.0, 8.0]
     
     const colorPalette = [
-      new THREE.Color(0.2, 0.6, 1.0),      // 深蓝星云
-      new THREE.Color(1.0, 0.3, 0.6),      // 洋红星云
-      new THREE.Color(0.4, 1.0, 0.3),      // 绿色星云
-      new THREE.Color(1.0, 0.7, 0.2),      // 橙色星云
-      new THREE.Color(0.6, 0.2, 1.0),      // 紫色星云
-      new THREE.Color(0.3, 1.0, 0.9),      // 青色星云
-      new THREE.Color(1.0, 0.4, 0.4),      // 红色星云
-      new THREE.Color(0.8, 0.8, 0.2),      // 黄色星云
-      new THREE.Color(0.5, 0.3, 0.8),      // 深紫星云
-      new THREE.Color(0.2, 0.8, 0.5),      // 翠绿星云
+      new THREE.Color(0x3399ff),      // 深蓝星云
+      new THREE.Color(0xff4d99),      // 洋红星云
+      new THREE.Color(0x66ff4d),      // 绿色星云
+      new THREE.Color(0xffb333),      // 橙色星云
+      new THREE.Color(0x9933ff),      // 紫色星云
+      new THREE.Color(0x4dffe6),      // 青色星云
+      new THREE.Color(0xff6666),      // 红色星云
+      new THREE.Color(0xcccc33),      // 黄色星云
+      new THREE.Color(0x804dcc),      // 深紫星云
+      new THREE.Color(0x33cc80),      // 翠绿星云
+      new THREE.Color(0xff8033),      // 珊瑚橙
+      new THREE.Color(0x8033ff),      // 深紫蓝
+      new THREE.Color(0x33ff80),      // 春绿
+      new THREE.Color(0xff3380),      // 玫瑰红
+      new THREE.Color(0x3380ff),      // 钴蓝
     ]
     
     super(

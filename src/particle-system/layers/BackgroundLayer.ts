@@ -10,16 +10,21 @@ export class BackgroundLayer extends ParticleLayer {
     const sizeRange: [number, number] = [0.5, 3.0]
     
     const colorPalette = [
-      new THREE.Color(0.8, 0.8, 1.0),      // 淡蓝白
-      new THREE.Color(1.0, 0.9, 0.8),      // 暖白
-      new THREE.Color(0.9, 0.8, 1.0),      // 淡紫白
-      new THREE.Color(0.8, 1.0, 0.9),      // 淡绿白
-      new THREE.Color(1.0, 0.8, 0.9),      // 淡粉白
-      new THREE.Color(0.9, 1.0, 0.8),      // 淡黄白
-      new THREE.Color(0.8, 0.9, 1.0),      // 天蓝白
-      new THREE.Color(1.0, 0.8, 0.8),      // 淡红白
-      new THREE.Color(0.9, 0.9, 0.8),      // 米白
-      new THREE.Color(0.8, 0.8, 0.9),      // 银白
+      new THREE.Color(0xccccff),      // 淡蓝白
+      new THREE.Color(0xffe6cc),      // 暖白
+      new THREE.Color(0xe6ccff),      // 淡紫白
+      new THREE.Color(0xccffe6),      // 淡绿白
+      new THREE.Color(0xffcce6),      // 淡粉白
+      new THREE.Color(0xe6ffcc),      // 淡黄白
+      new THREE.Color(0xcce6ff),      // 天蓝白
+      new THREE.Color(0xffcccc),      // 淡红白
+      new THREE.Color(0xe6e6cc),      // 米白
+      new THREE.Color(0xcccce6),      // 银白
+      new THREE.Color(0xffd9cc),      // 桃色
+      new THREE.Color(0xccffd9),      // 薄荷
+      new THREE.Color(0xd9ccff),      // 薰衣草
+      new THREE.Color(0xffffff),      // 纯白
+      new THREE.Color(0xf0f0f0),      // 银灰
     ]
     
     super(

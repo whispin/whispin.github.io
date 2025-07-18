@@ -10,16 +10,21 @@ export class ForegroundLayer extends ParticleLayer {
     const sizeRange: [number, number] = [4.0, 15.0]
     
     const colorPalette = [
-      new THREE.Color(1.0, 1.0, 1.0),      // 纯白星光
-      new THREE.Color(0.1, 0.8, 1.0),      // 电子蓝
-      new THREE.Color(0.9, 0.2, 1.0),      // 霓虹紫
-      new THREE.Color(0.0, 1.0, 0.8),      // 青色光芒
-      new THREE.Color(1.0, 0.4, 0.1),      // 能量橙
-      new THREE.Color(0.8, 0.1, 0.8),      // 深紫色
-      new THREE.Color(1.0, 0.8, 0.2),      // 金色
-      new THREE.Color(0.2, 1.0, 0.4),      // 翠绿色
-      new THREE.Color(1.0, 0.6, 0.8),      // 粉红色
-      new THREE.Color(0.4, 0.9, 1.0),      // 天空蓝
+      new THREE.Color(0xffffff),      // 纯白星光
+      new THREE.Color(0x1affff),      // 电子蓝
+      new THREE.Color(0xe632ff),      // 霓虹紫
+      new THREE.Color(0x00ffcc),      // 青色光芒
+      new THREE.Color(0xff6619),      // 能量橙
+      new THREE.Color(0xcc19cc),      // 深紫色
+      new THREE.Color(0xffcc32),      // 金色
+      new THREE.Color(0x32ff66),      // 翠绿色
+      new THREE.Color(0xff9932),      // 粉红色
+      new THREE.Color(0x66e6ff),      // 天空蓝
+      new THREE.Color(0xff3366),      // 珊瑚红
+      new THREE.Color(0x9933ff),      // 紫罗兰
+      new THREE.Color(0x33ff99),      // 薄荷绿
+      new THREE.Color(0xff9933),      // 暖橙
+      new THREE.Color(0x3399ff),      // 天蓝
     ]
     
     super(

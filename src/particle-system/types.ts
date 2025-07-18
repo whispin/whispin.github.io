@@ -30,8 +30,8 @@ export interface UniformData {
   intensity: { value: number }
 }
 
-// 颜色调色板接口
-export interface ColorPalette {
+// 颜色调色板接口（旧版，考虑废弃）
+export interface LegacyColorPalette {
   stars: THREE.Color[]        // 恒星颜色
   nebula: THREE.Color[]       // 星云颜色
   energy: THREE.Color[]       // 能量场颜色
