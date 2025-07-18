@@ -13,10 +13,33 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
-body {
+* {
+    box-sizing: border-box;
     margin: 0;
+    padding: 0;
+}
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden;
+    position: relative;
+}
+
+body {
     min-width: 320px;
     min-height: 100vh;
+}
+
+#app {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative;
+    overflow: hidden;
 }
 /*
  增强的星空粒子CSS效果 */
