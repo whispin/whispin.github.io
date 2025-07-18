@@ -49,6 +49,7 @@ export interface ParticleLayer {
   create(): void
   updateUniforms(time: number, mouse: THREE.Vector2): void
   dispose(): void
+  onWindowResize?(width: number, height: number): void
 }
 
 // 粒子系统管理器接口

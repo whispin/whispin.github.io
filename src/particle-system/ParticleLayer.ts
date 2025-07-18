@@ -212,7 +212,7 @@ export abstract class ParticleLayer implements IParticleLayer {
     return ParticleType.STAR
   }
 
-  public onWindowResize(width: number, height: number): void {
+  public onWindowResize?(width: number, height: number): void {
     // 基础粒子层的窗口大小调整处理
     // 子类可以重写此方法来实现特定的调整逻辑
     console.log(`ParticleLayer: Window resized to ${width}x${height}`)

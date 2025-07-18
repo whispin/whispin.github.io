@@ -277,6 +277,9 @@ export class EnhancedShaders {
       attribute float size;
       attribute float phase;
       attribute float depth;
+      attribute vec3 velocity;
+      attribute float orbitalSpeed;
+      attribute float particleType;
 
       varying vec3 vColor;
       varying float vAlpha;

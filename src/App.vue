@@ -5,6 +5,8 @@ import { ParticleSystemManager } from './particle-system/ParticleSystemManager'
 import { ForegroundLayer } from './particle-system/layers/ForegroundLayer'
 import { MidgroundLayer } from './particle-system/layers/MidgroundLayer'
 import { BackgroundLayer } from './particle-system/layers/BackgroundLayer'
+import { SimpleParticleTest } from './particle-system/test/SimpleParticleTest'
+import { SimpleParticleSystem } from './particle-system/simple/SimpleParticleSystem'
 
 
 // 终端状态
@@ -21,6 +23,8 @@ let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
 let renderer: THREE.WebGLRenderer
 let particleSystemManager: ParticleSystemManager
+let simpleParticleTest: SimpleParticleTest
+let simpleParticleSystem: SimpleParticleSystem
 let animationId: number | undefined
 let mouse = { x: 0, y: 0 }
 let time = 0
@@ -180,17 +184,33 @@ const initThreeJS = () => {
     // scene.add(testCube)
     // console.log('Test cube added to scene')
 
+    // 创建简单的粒子系统
+    createSimpleParticleSystem()
+    console.log('Simple particle system created')
+
+    // 创建简单的粒子系统测试
+    createSimpleParticleTest()
+    console.log('Simple particle test created')
+
     // 创建新的模块化粒子系统
     createNewParticleSystem()
     console.log('New modular particle system created')
 
     // 初始化增强交互系统
-    particleSystemManager.initializeInteraction(camera)
-    console.log('Enhanced interaction system initialized')
+    try {
+      particleSystemManager.initializeInteraction(camera)
+      console.log('Enhanced interaction system initialized')
+    } catch (error) {
+      console.error('Error initializing interaction system:', error)
+    }
 
     // 初始化渲染优化器
-    particleSystemManager.initializeRenderOptimizer(camera)
-    console.log('Render optimizer initialized')
+    try {
+      particleSystemManager.initializeRenderOptimizer(camera)
+      console.log('Render optimizer initialized')
+    } catch (error) {
+      console.error('Error initializing render optimizer:', error)
+    }
 
     // 保留旧的鼠标交互作为备用
     setupMouseInteraction()
@@ -287,6 +307,32 @@ const createSimpleTestParticleSystem = () => {
   }
 }
 
+// 创建简单的粒子系统
+const createSimpleParticleSystem = () => {
+  console.log('Creating simple particle system...')
+  
+  try {
+    simpleParticleSystem = new SimpleParticleSystem(scene)
+    simpleParticleSystem.initialize()
+    console.log('Simple particle system created successfully')
+  } catch (error) {
+    console.error('Error creating simple particle system:', error)
+  }
+}
+
+// 创建简单的粒子系统测试
+const createSimpleParticleTest = () => {
+  console.log('Creating simple particle test...')
+  
+  try {
+    simpleParticleTest = new SimpleParticleTest(scene)
+    simpleParticleTest.create()
+    console.log('Simple particle test created successfully')
+  } catch (error) {
+    console.error('Error creating simple particle test:', error)
+  }
+}
+
 // 创建新的增强粒子系统
 const createNewParticleSystem = () => {
   console.log('Creating new enhanced particle system...')
@@ -370,6 +416,17 @@ const animate = () => {
     if (window.testParticles) {
       window.testParticles.rotation.y += 0.005
       window.testParticles.rotation.x += 0.002
+    }
+
+    // 更新简单粒子系统
+    if (simpleParticleSystem) {
+      simpleParticleSystem.update(deltaTime)
+      simpleParticleSystem.updateMouse(mouse.x, mouse.y)
+    }
+
+    // 更新简单粒子测试
+    if (simpleParticleTest) {
+      simpleParticleTest.update(time)
     }
 
     if (particleSystemManager) {
@@ -470,6 +527,14 @@ onUnmounted(() => {
   
   if (particleSystemManager) {
     particleSystemManager.dispose()
+  }
+
+  if (simpleParticleSystem) {
+    simpleParticleSystem.dispose()
+  }
+
+  if (simpleParticleTest) {
+    simpleParticleTest.dispose()
   }
   
   window.removeEventListener('resize', onWindowResize)
