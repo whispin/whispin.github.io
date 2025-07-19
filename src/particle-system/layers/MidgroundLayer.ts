@@ -33,8 +33,8 @@ export class MidgroundLayer extends ParticleLayer {
       intensity: 0.8,                    // 中景层中等强度
       depthBase: 0.5,                   // 中等的基础深度
       depthMultiplier: 0.4,             // 中等的深度范围
-      orbitalSpeedMultiplier: 0.2,      // 中等的轨道速度
-      velocityMultiplier: 0.03,         // 中等的速度
+      orbitalSpeedMultiplier: 0.08,     // 降低轨道速度 (从 0.2 降到 0.08)
+      velocityMultiplier: 0.012,        // 降低移动速度 (从 0.03 降到 0.012)
       brightnessBase: 0.6,              // 中等的基础亮度
       brightnessMultiplier: 0.3         // 中等的亮度范围
     }

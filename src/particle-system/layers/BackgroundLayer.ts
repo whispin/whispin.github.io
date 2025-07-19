@@ -33,8 +33,8 @@ export class BackgroundLayer extends ParticleLayer {
       intensity: 0.8,                    // 增强背景层强度
       depthBase: 0.4,                   // 提高基础深度
       depthMultiplier: 0.4,             // 增加深度范围
-      orbitalSpeedMultiplier: 0.1,      // 较慢的轨道速度
-      velocityMultiplier: 0.01,         // 较小的速度
+      orbitalSpeedMultiplier: 0.04,     // 大幅降低轨道速度 (从 0.1 降到 0.04)
+      velocityMultiplier: 0.004,        // 大幅降低移动速度 (从 0.01 降到 0.004)
       brightnessBase: 0.6,              // 提高基础亮度
       brightnessMultiplier: 0.4         // 增加亮度范围
     }

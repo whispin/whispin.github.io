@@ -217,20 +217,20 @@ export class ColorSystem {
   }
 
   /**
-   * 基于时间的颜色变化 - 增强版本
+   * 基于时间的颜色变化 - 增强版本，降低动画速度
    */
-  static animateColor(baseColor: THREE.Color, time: number, speed: number = 1.0): THREE.Color {
+  static animateColor(baseColor: THREE.Color, time: number, speed: number = 0.4): THREE.Color {
     const animated = baseColor.clone()
     
-    // 增强饱和度
-    const saturationBoost = 0.3 + Math.sin(time * speed * 0.5) * 0.2
+    // 增强饱和度 - 减慢变化速度
+    const saturationBoost = 0.3 + Math.sin(time * speed * 0.2) * 0.2  // 从 0.5 降到 0.2
     
-    // 色相循环
-    const hueShift = Math.sin(time * speed) * 0.1
+    // 色相循环 - 减慢变化速度
+    const hueShift = Math.sin(time * speed * 0.4) * 0.1  // 降低频率
     animated.offsetHSL(hueShift, saturationBoost, 0)
     
-    // 更明显的亮度脉动
-    const brightnessShift = Math.sin(time * speed * 2) * 0.3
+    // 更明显的亮度脉动 - 减慢变化速度
+    const brightnessShift = Math.sin(time * speed * 0.8) * 0.3  // 从 speed * 2 降到 speed * 0.8
     animated.multiplyScalar(1.2 + brightnessShift)
     
     return animated

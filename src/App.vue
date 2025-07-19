@@ -376,10 +376,10 @@ const animate = () => {
 
     // 统一粒子系统更新 - 优化后的单循环
     try {
-      // 更新简单测试粒子（可视化调试用）
+      // 更新简单测试粒子（可视化调试用）- 降低旋转速度
       if (window.testParticles) {
-        window.testParticles.rotation.y += 0.005
-        window.testParticles.rotation.x += 0.002
+        window.testParticles.rotation.y += 0.002  // 从 0.005 降低到 0.002
+        window.testParticles.rotation.x += 0.0008 // 从 0.002 降低到 0.0008
       }
 
       // 优先使用主要粒子系统管理器

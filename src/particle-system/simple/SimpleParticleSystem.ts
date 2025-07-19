@@ -151,13 +151,13 @@ export class SimpleParticleSystem {
     this.time += deltaTime
 
     this.particles.forEach((particle, index) => {
-      const rotationSpeed = 0.001 * (index + 1)
+      const rotationSpeed = 0.0004 * (index + 1)  // 从 0.001 降低到 0.0004
       particle.rotation.y += rotationSpeed
       particle.rotation.x += rotationSpeed * 0.5
       
-      // 简单的鼠标交互
-      particle.position.x += this.mouse.x * 0.1
-      particle.position.y += this.mouse.y * 0.1
+      // 简单的鼠标交互 - 降低移动幅度
+      particle.position.x += this.mouse.x * 0.04  // 从 0.1 降低到 0.04
+      particle.position.y += this.mouse.y * 0.04  // 从 0.1 降低到 0.04
       
       // 动态颜色更新（每隔一段时间更新一次以提高性能）
       if (Math.floor(this.time * 10) % 10 === 0) {
@@ -190,14 +190,14 @@ export class SimpleParticleSystem {
       let animatedColor = currentColor
       
       if (particleName === 'energy') {
-        // 能量场粒子有更强的颜色动画
-        animatedColor = ColorSystem.animateColor(currentColor, this.time, 2.0)
+        // 能量场粒子有更强的颜色动画 - 降低速度
+        animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.8)  // 从 2.0 降到 0.8
       } else if (particleName === 'stars') {
-        // 恒星有微弱的闪烁
-        animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.5)
+        // 恒星有微弱的闪烁 - 降低速度
+        animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.2)  // 从 0.5 降到 0.2
       } else if (particleName === 'nebula') {
-        // 星云有慢速的颜色变化
-        animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.3)
+        // 星云有慢速的颜色变化 - 进一步降低速度
+        animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.12) // 从 0.3 降到 0.12
       }
       
       // 应用鼠标交互的颜色增强

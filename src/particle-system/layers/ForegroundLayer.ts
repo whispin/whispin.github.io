@@ -33,8 +33,8 @@ export class ForegroundLayer extends ParticleLayer {
       intensity: 1.5,                    // 进一步增强前景层强度
       depthBase: 0.9,                   // 更高的基础深度
       depthMultiplier: 0.7,             // 更大的深度范围
-      orbitalSpeedMultiplier: 0.3,      // 最快的轨道速度
-      velocityMultiplier: 0.05,         // 最大的速度
+      orbitalSpeedMultiplier: 0.12,     // 大幅降低轨道速度 (从 0.3 降到 0.12)
+      velocityMultiplier: 0.02,         // 大幅降低移动速度 (从 0.05 降到 0.02)
       brightnessBase: 1.0,              // 最大的基础亮度
       brightnessMultiplier: 0.5         // 更大的亮度范围
     }
@@ -75,14 +75,14 @@ export class ForegroundLayer extends ParticleLayer {
       // 生成大小 - 前景粒子更大更亮
       this.particleData.size[i] = this.generateParticleSize(this.particleData.depth[i], normalizedDistance)
       
-      // 生成轨道运动参数
+      // 生成轨道运动参数 - 降低速度
       const orbitalSpeed = (0.5 + Math.random() * 0.5) * (2.0 - this.particleData.depth[i])
-      this.particleData.orbitalSpeed[i] = orbitalSpeed * 0.3
+      this.particleData.orbitalSpeed[i] = orbitalSpeed * 0.12  // 从 0.3 降到 0.12
       
-      // 生成速度
-      this.particleData.velocity[i3] = (Math.random() - 0.5) * 0.05
-      this.particleData.velocity[i3 + 1] = (Math.random() - 0.5) * 0.02
-      this.particleData.velocity[i3 + 2] = (Math.random() - 0.5) * 0.05
+      // 生成速度 - 降低各方向的移动速度
+      this.particleData.velocity[i3] = (Math.random() - 0.5) * 0.02      // 从 0.05 降到 0.02
+      this.particleData.velocity[i3 + 1] = (Math.random() - 0.5) * 0.008  // 从 0.02 降到 0.008
+      this.particleData.velocity[i3 + 2] = (Math.random() - 0.5) * 0.02   // 从 0.05 降到 0.02
       
       // 随机相位
       this.particleData.phase[i] = Math.random() * Math.PI * 2
