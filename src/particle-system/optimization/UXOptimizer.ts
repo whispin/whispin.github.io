@@ -3,8 +3,8 @@
  * 负责优化动画参数、交互响应和视觉效果
  */
 
-import * as THREE from 'three'
-import type { QualityLevel } from '../types'
+// import * as THREE from 'three'
+// import type { QualityLevel } from '../types'
 
 export interface UXOptimizationConfig {
   // 动画优化
@@ -199,13 +199,13 @@ export class UXOptimizer {
     const targetFPS = this.config.batteryOptimization ? 30 : 60
     const frameTime = 1000 / targetFPS
 
-    // 调整动画缓动函数
-    const easingFunctions = {
-      'linear': (t: number) => t,
-      'ease-in': (t: number) => t * t,
-      'ease-out': (t: number) => t * (2 - t),
-      'ease-in-out': (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
-    }
+    // 调整动画缓动函数 - 保留以供将来使用
+    // const easingFunctions = {
+    //   'linear': (t: number) => t,
+    //   'ease-in': (t: number) => t * t,
+    //   'ease-out': (t: number) => t * (2 - t),
+    //   'ease-in-out': (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+    // }
 
     // 应用优化的动画参数
     this.config.interactionDelay = Math.max(frameTime, this.config.interactionDelay)
@@ -314,18 +314,18 @@ export class UXOptimizer {
     // 键盘导航优化
     if (typeof window !== 'undefined') {
       // 检测是否使用键盘导航
-      let usingKeyboard = false
+      // let usingKeyboard = false
 
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Tab') {
-          usingKeyboard = true
+          // usingKeyboard = true
           // 增强焦点反馈
           this.config.feedbackIntensity = Math.min(this.config.feedbackIntensity * 1.3, 1.0)
         }
       })
 
       window.addEventListener('mousedown', () => {
-        usingKeyboard = false
+        // usingKeyboard = false
       })
     }
 
@@ -342,12 +342,12 @@ export class UXOptimizer {
     // 基于当前性能指标进行微调
     const currentPerformance = await this.measureCurrentPerformance()
 
-    if (currentPerformance.averageFrameTime > 20) {
+    if (currentPerformance.averageFrameTime! > 20) {
       // 性能不足，降低质量
       this.config.animationSmoothness *= 0.8
       this.config.feedbackIntensity *= 0.8
       this.config.transitionSpeed *= 0.9
-    } else if (currentPerformance.averageFrameTime < 12) {
+    } else if (currentPerformance.averageFrameTime! < 12) {
       // 性能充足，可以提升质量
       this.config.animationSmoothness = Math.min(this.config.animationSmoothness * 1.1, 1.0)
       this.config.feedbackIntensity = Math.min(this.config.feedbackIntensity * 1.1, 1.0)

@@ -130,15 +130,15 @@ export class PerformanceOptimizer {
 
     // 性能过低，需要降级
     if (avgFps < this.config.minFps) {
-      if (this.currentQuality > QualityLevel.LOW) {
-        recommendedQuality = Math.max(QualityLevel.LOW, this.currentQuality - 1) as QualityLevel
+      if (this.currentQuality !== QualityLevel.LOW) {
+        recommendedQuality = this.getDowngradedQuality(this.currentQuality)
         reason = `Low FPS detected (${avgFps.toFixed(1)}), downgrading quality`
       }
     }
     // 性能良好，可以升级
     else if (avgFps > this.config.targetFps * 1.2) {
-      if (this.currentQuality < QualityLevel.ULTRA) {
-        recommendedQuality = Math.min(QualityLevel.ULTRA, this.currentQuality + 1) as QualityLevel
+      if (this.currentQuality !== QualityLevel.ULTRA) {
+        recommendedQuality = this.getUpgradedQuality(this.currentQuality)
         reason = `High FPS detected (${avgFps.toFixed(1)}), upgrading quality`
       }
     }
@@ -164,7 +164,7 @@ export class PerformanceOptimizer {
       throw new Error(`Quality level ${quality} not found`)
     }
 
-    console.log(`Applied quality level: ${QualityLevel[quality]}`, config)
+    console.log(`Applied quality level: ${quality}`, config)
     return { ...config }
   }
 
@@ -210,7 +210,7 @@ export class PerformanceOptimizer {
   /**
    * 优化粒子层 - 应用LOD和视锥剔除
    */
-  optimizeLayer(layer: ParticleLayer, camera: THREE.Camera): void {
+  optimizeLayer(layer: ParticleLayer, _camera: THREE.Camera): void {
     if (!this.config.enableLOD && !this.config.enableFrustumCulling) {
       return
     }
@@ -239,7 +239,7 @@ export class PerformanceOptimizer {
       : 0
 
     return {
-      currentQuality: QualityLevel[this.currentQuality],
+      currentQuality: this.currentQuality,
       avgFps: Math.round(avgFps * 100) / 100,
       optimizationCount: this.performanceHistory.length,
       lastOptimization: this.lastOptimization
@@ -252,6 +252,32 @@ export class PerformanceOptimizer {
   resetPerformanceHistory(): void {
     this.performanceHistory = []
     this.lastOptimization = 0
+  }
+
+  /**
+   * 获取降级质量等级
+   */
+  private getDowngradedQuality(current: QualityLevel): QualityLevel {
+    switch (current) {
+      case QualityLevel.ULTRA: return QualityLevel.HIGH
+      case QualityLevel.HIGH: return QualityLevel.MEDIUM
+      case QualityLevel.MEDIUM: return QualityLevel.LOW
+      case QualityLevel.LOW: return QualityLevel.LOW
+      default: return QualityLevel.LOW
+    }
+  }
+
+  /**
+   * 获取升级质量等级
+   */
+  private getUpgradedQuality(current: QualityLevel): QualityLevel {
+    switch (current) {
+      case QualityLevel.LOW: return QualityLevel.MEDIUM
+      case QualityLevel.MEDIUM: return QualityLevel.HIGH
+      case QualityLevel.HIGH: return QualityLevel.ULTRA
+      case QualityLevel.ULTRA: return QualityLevel.ULTRA
+      default: return QualityLevel.MEDIUM
+    }
   }
 
   /**

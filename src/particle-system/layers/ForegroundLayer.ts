@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { ParticleLayer } from '../ParticleLayer'
+import type { LayerConfiguration } from '../ParticleLayer'
 import { SpatialDistribution, ParticleType } from '../types'
-import { EnhancedShaders } from '../shaders/EnhancedShaders'
 
 export class ForegroundLayer extends ParticleLayer {
   constructor() {
@@ -27,13 +27,24 @@ export class ForegroundLayer extends ParticleLayer {
       new THREE.Color(0x3399ff),      // 天蓝
     ]
     
+    const layerConfig: LayerConfiguration = {
+      intensity: 1.2,                    // 前景层最高强度
+      depthBase: 0.8,                   // 最高的基础深度
+      depthMultiplier: 0.6,             // 最大的深度范围
+      orbitalSpeedMultiplier: 0.3,      // 最快的轨道速度
+      velocityMultiplier: 0.05,         // 最大的速度
+      brightnessBase: 0.8,              // 最高的基础亮度
+      brightnessMultiplier: 0.4         // 最大的亮度范围
+    }
+
     super(
       'foreground',
       particleCount,
       depthRange,
       sizeRange,
       colorPalette,
-      SpatialDistribution.GALAXY_ARM
+      SpatialDistribution.GALAXY_ARM,
+      layerConfig
     )
   }
 
@@ -92,48 +103,15 @@ export class ForegroundLayer extends ParticleLayer {
     return ParticleType.STAR // 75% 普通恒星
   }
 
-  protected createMaterial(): void {
-    // 直接使用简化着色器，确保稳定性
-    this.material = new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        mouse: { value: new THREE.Vector2() },
-        cameraPosition: { value: new THREE.Vector3() },
-        intensity: { value: 1.2 }
-      },
-      vertexShader: EnhancedShaders.getSimpleVertexShader(),
-      fragmentShader: EnhancedShaders.getSimpleFragmentShader(),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    })
 
-    console.log('Created simple material for foreground layer')
-  }
-
+  // 前景粒子更亮，有更强的颜色饱和度
   protected generateParticleColor(depth: number, _distanceFromCenter: number): THREE.Color {
-    const color = new THREE.Color()
+    const color = super.generateParticleColor(depth, _distanceFromCenter)
     
-    // 根据深度选择颜色
-    const colorIndex = Math.floor(Math.random() * this.colorPalette.length)
-    color.copy(this.colorPalette[colorIndex])
-    
-    // 前景粒子更亮，有更强的颜色饱和度
-    const brightness = 0.8 + depth * 0.4
+    // 前景层特殊处理：增强饱和度
     const saturation = 1.0 + depth * 0.3
-    
-    color.multiplyScalar(brightness)
     color.lerp(color.clone().multiplyScalar(saturation), 0.3)
     
     return color
-  }
-
-  protected generateParticleSize(depth: number, _distanceFromCenter: number): number {
-    const baseSize = this.sizeRange[0] + (this.sizeRange[1] - this.sizeRange[0]) * Math.random()
-    const depthFactor = 0.7 + depth * 0.6  // 前景粒子基础更大
-    const randomVariation = 0.8 + Math.random() * 0.4
-    
-    return baseSize * depthFactor * randomVariation
   }
 }

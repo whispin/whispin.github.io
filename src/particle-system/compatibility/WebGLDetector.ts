@@ -87,12 +87,12 @@ export class WebGLDetector {
     if (gl) return gl
 
     // 回退到WebGL1
-    gl = canvas.getContext('webgl', contextOptions) as WebGLRenderingContext
-    if (gl) return gl
+    const webgl1 = canvas.getContext('webgl', contextOptions) as WebGLRenderingContext | null
+    if (webgl1) return webgl1 as WebGL2RenderingContext
 
     // 尝试实验性上下文
-    gl = canvas.getContext('experimental-webgl', contextOptions) as WebGLRenderingContext
-    return gl
+    const experimentalWebgl = canvas.getContext('experimental-webgl', contextOptions) as WebGLRenderingContext | null
+    return experimentalWebgl as WebGL2RenderingContext | null
   }
 
   private analyzeWebGLCapabilities(gl: WebGLRenderingContext | WebGL2RenderingContext): WebGLCapabilities {
@@ -107,7 +107,7 @@ export class WebGLDetector {
       maxFragmentUniforms: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
       maxVaryingVectors: gl.getParameter(gl.MAX_VARYING_VECTORS),
       maxVertexAttributes: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
-      maxDrawBuffers: gl.getParameter(gl.MAX_DRAW_BUFFERS || 1),
+      maxDrawBuffers: gl instanceof WebGL2RenderingContext ? gl.getParameter(gl.MAX_DRAW_BUFFERS) : 1,
       extensions,
       renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown',
       vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'Unknown',

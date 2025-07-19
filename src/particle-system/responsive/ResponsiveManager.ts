@@ -44,7 +44,7 @@ export class ResponsiveManager {
 
   // 触摸交互
   private touchStartPositions: Map<number, THREE.Vector2> = new Map()
-  private activeGestures: TouchGesture[] = []
+  // private activeGestures: TouchGesture[] = []
   private lastTouchTime: number = 0
 
   // 事件监听器
@@ -357,7 +357,7 @@ Advanced Effects: ${this.getCurrentConfig().enableAdvancedEffects ? 'Enabled' : 
 
     // 清理数据
     this.touchStartPositions.clear()
-    this.activeGestures = []
+    // this.activeGestures = []
   }
 
   public onWindowResize(width: number, height: number): void {

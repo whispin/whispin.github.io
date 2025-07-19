@@ -39,6 +39,7 @@ export default [
             "@typescript-eslint": tseslint,
         },
         rules: {
+            ...tseslint.configs.recommended.rules,
             "@typescript-eslint/no-unused-vars": "warn",
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/ban-ts-comment": "warn",
@@ -75,6 +76,7 @@ export default [
             "vue/no-unused-components": "warn",
 
             // TypeScript
+            ...tseslint.configs.recommended.rules,
             "@typescript-eslint/no-unused-vars": "warn",
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/ban-ts-comment": "warn",

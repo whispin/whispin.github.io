@@ -173,11 +173,11 @@ export class SimpleParticleSystem {
     
     if (!colorAttribute || !positionAttribute || !particleTypeAttribute) return
     
-    const name = particle.name
-    const palette = this.palettes[name] || this.palettes.stellar
+    const particleName = particle.name
+    // const palette = this.palettes[particleName] || this.palettes.stellar
     
     for (let i = 0; i < colorAttribute.count; i++) {
-      const i3 = i * 3
+      // const i3 = i * 3 // Not used in current implementation
       
       // 获取当前颜色
       const currentColor = new THREE.Color(
@@ -189,13 +189,13 @@ export class SimpleParticleSystem {
       // 根据时间添加颜色动画
       let animatedColor = currentColor
       
-      if (name === 'energy') {
+      if (particleName === 'energy') {
         // 能量场粒子有更强的颜色动画
         animatedColor = ColorSystem.animateColor(currentColor, this.time, 2.0)
-      } else if (name === 'stars') {
+      } else if (particleName === 'stars') {
         // 恒星有微弱的闪烁
         animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.5)
-      } else if (name === 'nebula') {
+      } else if (particleName === 'nebula') {
         // 星云有慢速的颜色变化
         animatedColor = ColorSystem.animateColor(currentColor, this.time, 0.3)
       }

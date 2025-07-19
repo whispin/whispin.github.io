@@ -1,6 +1,17 @@
 import * as THREE from 'three'
 import type { ParticleLayer as IParticleLayer, ParticleData } from './types'
 import { ParticleType, SpatialDistribution } from './types'
+import { EnhancedShaders } from './shaders/EnhancedShaders'
+
+export interface LayerConfiguration {
+  intensity: number                    // Material intensity (0.4, 0.8, 1.2)
+  depthBase: number                   // Base depth factor (0.2, 0.5, 0.8)
+  depthMultiplier: number             // Depth range multiplier (0.3, 0.4, 0.6)
+  orbitalSpeedMultiplier: number      // Orbital speed factor (0.1, 0.2, 0.3)
+  velocityMultiplier: number          // Velocity range multiplier (0.01, 0.03, 0.05)
+  brightnessBase: number              // Base brightness (0.3, 0.6, 0.8)
+  brightnessMultiplier: number        // Brightness range multiplier (0.2, 0.3, 0.4)
+}
 
 export abstract class ParticleLayer implements IParticleLayer {
   public name: string
@@ -14,6 +25,7 @@ export abstract class ParticleLayer implements IParticleLayer {
   protected sizeRange: [number, number]
   protected colorPalette: THREE.Color[]
   protected spatialDistribution: SpatialDistribution
+  protected layerConfig: LayerConfiguration
   
   constructor(
     name: string,
@@ -21,7 +33,8 @@ export abstract class ParticleLayer implements IParticleLayer {
     depthRange: [number, number],
     sizeRange: [number, number],
     colorPalette: THREE.Color[],
-    spatialDistribution: SpatialDistribution
+    spatialDistribution: SpatialDistribution,
+    layerConfig: LayerConfiguration
   ) {
     this.name = name
     this.particleCount = particleCount
@@ -29,6 +42,7 @@ export abstract class ParticleLayer implements IParticleLayer {
     this.sizeRange = sizeRange
     this.colorPalette = colorPalette
     this.spatialDistribution = spatialDistribution
+    this.layerConfig = layerConfig
     
     this.initializeParticleData()
   }
@@ -83,8 +97,71 @@ export abstract class ParticleLayer implements IParticleLayer {
     console.log(`Disposed particle layer: ${this.name}`)
   }
 
-  protected abstract generateParticles(): void
-  protected abstract createMaterial(): void
+  protected generateParticles(): void {
+    console.log(`Generating ${this.name} particles...`)
+    
+    for (let i = 0; i < this.particleCount; i++) {
+      const i3 = i * 3
+      
+      // 生成3D空间位置
+      const position = this.generateSpatialPosition(i)
+      this.particleData.position[i3] = position.x
+      this.particleData.position[i3 + 1] = position.y
+      this.particleData.position[i3 + 2] = position.z
+      
+      // 计算深度因子
+      const distanceFromCenter = position.length()
+      const normalizedDistance = (distanceFromCenter - this.depthRange[0]) / (this.depthRange[1] - this.depthRange[0])
+      const depthFactor = 1.0 - Math.max(0, Math.min(1, normalizedDistance))
+      this.particleData.depth[i] = this.layerConfig.depthBase + depthFactor * this.layerConfig.depthMultiplier
+      
+      // 生成颜色
+      const color = this.generateParticleColor(this.particleData.depth[i], normalizedDistance)
+      this.particleData.color[i3] = color.r
+      this.particleData.color[i3 + 1] = color.g
+      this.particleData.color[i3 + 2] = color.b
+      
+      // 生成大小
+      this.particleData.size[i] = this.generateParticleSize(this.particleData.depth[i], normalizedDistance)
+      
+      // 生成轨道运动参数
+      const orbitalSpeed = (0.1 + Math.random() * 0.4) * (1.5 - this.particleData.depth[i])
+      this.particleData.orbitalSpeed[i] = orbitalSpeed * this.layerConfig.orbitalSpeedMultiplier
+      
+      // 生成速度
+      this.particleData.velocity[i3] = (Math.random() - 0.5) * this.layerConfig.velocityMultiplier
+      this.particleData.velocity[i3 + 1] = (Math.random() - 0.5) * (this.layerConfig.velocityMultiplier * 0.5)
+      this.particleData.velocity[i3 + 2] = (Math.random() - 0.5) * this.layerConfig.velocityMultiplier
+      
+      // 随机相位
+      this.particleData.phase[i] = Math.random() * Math.PI * 2
+      
+      // 粒子类型
+      const particleType = this.generateParticleType()
+      this.particleData.type[i] = particleType
+    }
+    
+    console.log(`Generated ${this.particleCount} ${this.name} particles`)
+  }
+
+  protected createMaterial(): void {
+    this.material = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        mouse: { value: new THREE.Vector2() },
+        cameraPosition: { value: new THREE.Vector3() },
+        intensity: { value: this.layerConfig.intensity }
+      },
+      vertexShader: EnhancedShaders.getSimpleVertexShader(),
+      fragmentShader: EnhancedShaders.getSimpleFragmentShader(),
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+
+    console.log(`Created material for ${this.name} layer with intensity ${this.layerConfig.intensity}`)
+  }
 
   protected initializeParticleData(): void {
     this.particleData = {
@@ -190,8 +267,8 @@ export abstract class ParticleLayer implements IParticleLayer {
     const colorIndex = Math.floor(Math.random() * this.colorPalette.length)
     color.copy(this.colorPalette[colorIndex])
     
-    // 根据深度调整亮度
-    const brightness = 0.4 + depth * 0.6
+    // 根据深度调整亮度 - 使用配置参数
+    const brightness = this.layerConfig.brightnessBase + depth * this.layerConfig.brightnessMultiplier
     color.multiplyScalar(brightness)
     
     return color

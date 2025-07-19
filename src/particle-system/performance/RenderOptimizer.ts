@@ -207,7 +207,7 @@ export class RenderOptimizer {
 
   private optimizeAttributes(geometry: THREE.BufferGeometry): void {
     // 检查并优化属性数组的使用
-    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+    for (const [_name, attribute] of Object.entries(geometry.attributes)) {
       if (attribute.needsUpdate) {
         // 可以在这里添加属性压缩或优化逻辑
         attribute.needsUpdate = false

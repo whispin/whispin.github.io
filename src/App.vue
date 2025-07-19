@@ -5,8 +5,9 @@ import { ParticleSystemManager } from './particle-system/ParticleSystemManager'
 import { ForegroundLayer } from './particle-system/layers/ForegroundLayer'
 import { MidgroundLayer } from './particle-system/layers/MidgroundLayer'
 import { BackgroundLayer } from './particle-system/layers/BackgroundLayer'
-import { SimpleParticleTest } from './particle-system/test/SimpleParticleTest'
+import { SimpleParticleTest } from './particle-system/test'
 import { SimpleParticleSystem } from './particle-system/simple/SimpleParticleSystem'
+import { errorHandler, ErrorSeverity } from './utils/ErrorHandler'
 
 
 // 终端状态
@@ -40,6 +41,9 @@ declare global {
 let webglContextLostHandler: ((event: Event) => void) | undefined
 let webglContextRestoredHandler: (() => void) | undefined
 
+// Store cursor blink interval for cleanup
+let cursorBlinkIntervalId: number | undefined
+
 // 主题配置
 const themes = {
   classic: { bg: 'bg-black', text: 'text-white', accent: 'text-green-400' },
@@ -66,7 +70,7 @@ const themeClasses = computed(() => themes[currentTheme.value as keyof typeof th
 
 // 启动光标闪烁
 onMounted(() => {
-  setInterval(() => {
+  cursorBlinkIntervalId = setInterval(() => {
     if (!isTyping.value) {
       cursorVisible.value = !cursorVisible.value
     }
@@ -117,19 +121,28 @@ const initThreeJS = () => {
     camera.position.z = 5
     console.log('Camera created')
 
-    // 创建渲染器
+    // 创建渲染器 - 优化配置
     renderer = new THREE.WebGLRenderer({
       alpha: true,
-      antialias: window.innerWidth > 640,
-      powerPreference: "high-performance"
+      antialias: window.innerWidth > 640 && window.devicePixelRatio <= 2, // 高DPI设备关闭抗锯齿以提升性能
+      powerPreference: "high-performance",
+      preserveDrawingBuffer: false, // 性能优化
+      failIfMajorPerformanceCaveat: false // 兼容性优化
     })
 
-    // 强制设置为全屏尺寸
+    // 优化渲染器设置
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.0
+
+    // 强制设置为全屏尺寸 - 优化像素比处理
     const width = window.innerWidth
     const height = window.innerHeight
-    console.log(`Initializing Three.js renderer with size: ${width}x${height}`)
-    renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    const pixelRatio = Math.min(window.devicePixelRatio, 2) // 限制最大像素比为2
+    
+    console.log(`Initializing Three.js renderer: ${width}x${height}, pixelRatio: ${pixelRatio}`)
+    renderer.setSize(width, height, false) // false = 不更新样式
+    renderer.setPixelRatio(pixelRatio)
 
     // 确保canvas样式正确 - 使用更强制的样式设置
     const canvas = renderer.domElement
@@ -412,52 +425,54 @@ const animate = () => {
     //   testCube.rotation.y += 0.01
     // }
 
-    // 更新简单测试粒子
-    if (window.testParticles) {
-      window.testParticles.rotation.y += 0.005
-      window.testParticles.rotation.x += 0.002
-    }
+    // 统一粒子系统更新 - 优化后的单循环
+    try {
+      // 更新简单测试粒子（可视化调试用）
+      if (window.testParticles) {
+        window.testParticles.rotation.y += 0.005
+        window.testParticles.rotation.x += 0.002
+      }
 
-    // 更新简单粒子系统
-    if (simpleParticleSystem) {
-      simpleParticleSystem.update(deltaTime)
-      simpleParticleSystem.updateMouse(mouse.x, mouse.y)
-    }
-
-    // 更新简单粒子测试
-    if (simpleParticleTest) {
-      simpleParticleTest.update(time)
-    }
-
-    if (particleSystemManager) {
-      // 更新粒子系统（交互管理器已集成）
-      try {
+      // 优先使用主要粒子系统管理器
+      if (particleSystemManager) {
         particleSystemManager.updateCameraPosition(camera.position)
         particleSystemManager.update(deltaTime)
-      } catch (error) {
-        console.error('Error updating particle system:', error)
+      } else {
+        // 备用简单系统（开发调试时使用）
+        if (simpleParticleSystem) {
+          simpleParticleSystem.update(deltaTime)
+          simpleParticleSystem.updateMouse(mouse.x, mouse.y)
+        }
+        
+        if (simpleParticleTest) {
+          simpleParticleTest.update(time)
+        }
       }
+    } catch (error) {
+      errorHandler.handleParticleSystemError(error as Error, 'Animation Loop Update')
     }
     
-    // 渲染场景 - 带错误处理
+    // 渲染场景 - 统一错误处理
     try {
       renderer.render(scene, camera)
     } catch (error) {
-      console.error('Error rendering scene:', error)
-      // 检查是否是WebGL相关错误
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage.includes('WebGL') || errorMessage.includes('context')) {
-        console.warn('WebGL error detected, attempting to recover...')
-        // 可以添加WebGL恢复逻辑
-      }
+      errorHandler.handleThreeJSError(error as Error, 'Scene Rendering')
     }
   } catch (error) {
-    console.error('Critical error in animation loop:', error)
+    errorHandler.handleError({
+      message: 'Critical error in animation loop',
+      severity: ErrorSeverity.CRITICAL,
+      context: 'Main Animation Loop',
+      error: error as Error,
+      timestamp: Date.now()
+    })
+    
     // 停止动画循环以防止连续错误
     if (animationId) {
       cancelAnimationFrame(animationId)
       animationId = undefined
     }
+    
     // 显示用户友好的错误消息
     if (terminalOutput.value) {
       terminalOutput.value.push({ 
@@ -468,41 +483,69 @@ const animate = () => {
   }
 }
 
-// 窗口大小调整
+// 窗口大小调整 - 优化性能和防抖
+let resizeTimeoutId: number | undefined
+
 const onWindowResize = () => {
   if (!camera || !renderer) return
 
-  const width = window.innerWidth
-  const height = window.innerHeight
-
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height)
-
-  // 确保canvas样式也更新
-  renderer.domElement.style.cssText = `
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    z-index: -1 !important;
-    pointer-events: none !important;
-    display: block !important;
-  `
-
-  // 通知粒子系统管理器窗口大小变化
-  if (particleSystemManager) {
-    particleSystemManager.onWindowResize(width, height)
+  // 防抖处理，避免频繁resize
+  if (resizeTimeoutId) {
+    clearTimeout(resizeTimeoutId)
   }
+
+  resizeTimeoutId = setTimeout(() => {
+    const width = window.innerWidth
+    const height = window.innerHeight
+    const pixelRatio = Math.min(window.devicePixelRatio, 2)
+
+    // 更新相机
+    camera.aspect = width / height
+    camera.updateProjectionMatrix()
+    
+    // 更新渲染器 - 优化像素比处理
+    renderer.setSize(width, height, false)
+    renderer.setPixelRatio(pixelRatio)
+
+    // 确保canvas样式正确
+    renderer.domElement.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      z-index: -1 !important;
+      pointer-events: none !important;
+      display: block !important;
+    `
+
+    // 通知粒子系统管理器窗口大小变化
+    if (particleSystemManager) {
+      particleSystemManager.onWindowResize(width, height)
+    }
+
+    console.log(`Window resized to ${width}x${height}, pixelRatio: ${pixelRatio}`)
+  }, 100) // 100ms 防抖
 }
 
 // CSS粒子特效已被Three.js系统完全替代
 
 // 组件卸载时清理
 onUnmounted(() => {
+  // 清理光标闪烁定时器
+  if (cursorBlinkIntervalId) {
+    clearInterval(cursorBlinkIntervalId)
+    cursorBlinkIntervalId = undefined
+  }
+
+  // 清理窗口调整定时器
+  if (resizeTimeoutId) {
+    clearTimeout(resizeTimeoutId)
+    resizeTimeoutId = undefined
+  }
+  
   if (animationId) {
     cancelAnimationFrame(animationId)
     animationId = undefined

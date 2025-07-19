@@ -64,7 +64,7 @@ export class ParticleSystemManager implements IParticleSystemManager {
     this.themeManager = new ThemeManager('matrix')
 
     // 设置主题过渡回调
-    this.themeManager.addTransitionCallback((progress: number, colors: ColorPalette) => {
+    this.themeManager.addTransitionCallback((_progress: number, colors: ColorPalette) => {
       this.updateParticleColors(colors)
     })
 
@@ -767,15 +767,15 @@ export class ParticleSystemManager implements IParticleSystemManager {
     // 应用减少动画优化
     if (config.motionReduction) {
       // 减少动画效果
-      this.particleLayers.forEach(layer => {
+      this.particleLayers.forEach(_layer => {
         // 这里可以调整每个层的动画参数
       })
     }
 
     // 应用视觉优化
     if (config.contrastBoost !== 1.0 || config.saturationAdjust !== 1.0 || config.brightnessAdjust !== 1.0) {
-      // 调整颜色参数
-      const currentTheme = this.themeManager.getCurrentTheme()
+      // 调整颜色参数 - 保留以供将来使用
+      // const currentTheme = this.themeManager.getCurrentTheme()
       // 这里可以根据视觉优化参数调整主题颜色
     }
   }
