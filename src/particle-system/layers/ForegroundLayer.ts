@@ -30,13 +30,13 @@ export class ForegroundLayer extends ParticleLayer {
     ]
     
     const layerConfig: LayerConfiguration = {
-      intensity: 1.2,                    // 前景层最高强度
-      depthBase: 0.8,                   // 最高的基础深度
-      depthMultiplier: 0.6,             // 最大的深度范围
+      intensity: 1.5,                    // 进一步增强前景层强度
+      depthBase: 0.9,                   // 更高的基础深度
+      depthMultiplier: 0.7,             // 更大的深度范围
       orbitalSpeedMultiplier: 0.3,      // 最快的轨道速度
       velocityMultiplier: 0.05,         // 最大的速度
-      brightnessBase: 0.8,              // 最高的基础亮度
-      brightnessMultiplier: 0.4         // 最大的亮度范围
+      brightnessBase: 1.0,              // 最大的基础亮度
+      brightnessMultiplier: 0.5         // 更大的亮度范围
     }
 
     super(
@@ -149,8 +149,8 @@ export class ForegroundLayer extends ParticleLayer {
     const velocity = (Math.random() - 0.5) * 10000 // ±10km/s
     color = ColorSystem.applyDopplerShift(color, velocity)
     
-    // 深度增强亮度 - 前景最亮
-    color.multiplyScalar(0.9 + depth * 0.6)
+    // 深度增强亮度 - 前景更加明亮
+    color.multiplyScalar(1.1 + depth * 0.8)
     
     return color
   }

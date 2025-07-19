@@ -259,11 +259,11 @@ const createSimpleTestParticleSystem = () => {
     canvas.height = 64
     const context = canvas.getContext('2d')!
 
-    // 绘制圆形纹理
+    // 绘制更清晰的圆形纹理
     const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32)
     gradient.addColorStop(0, 'rgba(255,255,255,1)')
-    gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)')
-    gradient.addColorStop(0.4, 'rgba(255,255,255,0.4)')
+    gradient.addColorStop(0.1, 'rgba(255,255,255,1)')
+    gradient.addColorStop(0.6, 'rgba(255,255,255,0.8)')
     gradient.addColorStop(1, 'rgba(255,255,255,0)')
 
     context.fillStyle = gradient
@@ -272,13 +272,13 @@ const createSimpleTestParticleSystem = () => {
     const texture = new THREE.CanvasTexture(canvas)
 
     const material = new THREE.PointsMaterial({
-      size: 3,
+      size: 4,
       map: texture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.8,
+      opacity: 1.0,
       blending: THREE.AdditiveBlending,
-      alphaTest: 0.001
+      alphaTest: 0.3
     })
 
     // 创建粒子系统

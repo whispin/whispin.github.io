@@ -100,9 +100,9 @@ export class SimpleParticleSystem {
         finalColor = ColorSystem.generateRandomColor(palette, 0.3)
       }
       
-      // 添加距离基础的亮度调整
+      // 添加距离基础的亮度调整 - 增强明亮度
       const distance = position.length()
-      const brightness = Math.max(0.3, Math.min(1.0, 1.0 - distance / (range * 0.8)))
+      const brightness = Math.max(0.6, Math.min(1.5, 1.2 - distance / (range * 1.2)))
       finalColor.multiplyScalar(brightness)
       
       colors[i3] = finalColor.r
@@ -131,13 +131,13 @@ export class SimpleParticleSystem {
     const texture = this.textures[textureType] || this.textures.circle
 
     const material = new THREE.PointsMaterial({
-      size: 2,
+      size: 3,
       map: texture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.8,
+      opacity: 1.0,
       blending: THREE.AdditiveBlending,
-      alphaTest: 0.001,
+      alphaTest: 0.3,
       sizeAttenuation: true
     })
 

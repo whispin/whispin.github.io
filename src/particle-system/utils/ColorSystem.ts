@@ -217,34 +217,40 @@ export class ColorSystem {
   }
 
   /**
-   * 基于时间的颜色变化
+   * 基于时间的颜色变化 - 增强版本
    */
   static animateColor(baseColor: THREE.Color, time: number, speed: number = 1.0): THREE.Color {
     const animated = baseColor.clone()
     
+    // 增强饱和度
+    const saturationBoost = 0.3 + Math.sin(time * speed * 0.5) * 0.2
+    
     // 色相循环
     const hueShift = Math.sin(time * speed) * 0.1
-    animated.offsetHSL(hueShift, 0, 0)
+    animated.offsetHSL(hueShift, saturationBoost, 0)
     
-    // 亮度脉动
-    const brightnessShift = Math.sin(time * speed * 2) * 0.2
-    animated.multiplyScalar(1.0 + brightnessShift)
+    // 更明显的亮度脉动
+    const brightnessShift = Math.sin(time * speed * 2) * 0.3
+    animated.multiplyScalar(1.2 + brightnessShift)
     
     return animated
   }
 
   /**
-   * 生成随机颜色（在调色板范围内）
+   * 生成随机颜色（在调色板范围内）- 增强饱和度版本
    */
   static generateRandomColor(palette: ColorPalette, variation: number = 0.3): THREE.Color {
     const baseColor = palette.colors[Math.floor(Math.random() * palette.colors.length)].clone()
     
-    // 添加随机变化
+    // 添加随机变化 - 增强饱和度，提高亮度
     const hueShift = (Math.random() - 0.5) * variation
-    const satShift = (Math.random() - 0.5) * variation * 0.5
-    const lightShift = (Math.random() - 0.5) * variation * 0.3
+    const satShift = 0.2 + (Math.random() - 0.5) * variation * 0.3 // 提高基础饱和度
+    const lightShift = 0.1 + (Math.random() - 0.5) * variation * 0.2 // 提高基础亮度
     
     baseColor.offsetHSL(hueShift, satShift, lightShift)
+    
+    // 额外亮度提升
+    baseColor.multiplyScalar(1.2)
     
     return baseColor
   }

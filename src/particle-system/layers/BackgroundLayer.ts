@@ -30,13 +30,13 @@ export class BackgroundLayer extends ParticleLayer {
     ]
 
     const layerConfig: LayerConfiguration = {
-      intensity: 0.4,                    // 背景层较低强度
-      depthBase: 0.2,                   // 较低的基础深度
-      depthMultiplier: 0.3,             // 较小的深度范围
+      intensity: 0.8,                    // 增强背景层强度
+      depthBase: 0.4,                   // 提高基础深度
+      depthMultiplier: 0.4,             // 增加深度范围
       orbitalSpeedMultiplier: 0.1,      // 较慢的轨道速度
       velocityMultiplier: 0.01,         // 较小的速度
-      brightnessBase: 0.3,              // 较低的基础亮度
-      brightnessMultiplier: 0.2         // 较小的亮度范围
+      brightnessBase: 0.6,              // 提高基础亮度
+      brightnessMultiplier: 0.4         // 增加亮度范围
     }
     
     super(
@@ -69,8 +69,8 @@ export class BackgroundLayer extends ParticleLayer {
     const distance = distanceFromCenter * 100 // 转换为合适的距离单位
     color = ColorSystem.applyInterstellarReddening(color, distance, 0.008)
     
-    // 背景恒星亮度较低
-    color.multiplyScalar(0.6 + depth * 0.4)
+    // 背景恒星亮度提升
+    color.multiplyScalar(0.8 + depth * 0.6)
     
     return color
   }
