@@ -17,6 +17,16 @@ const terminalInput = ref('')
 const currentPath = ref('C:\\Users\\whispin')
 const cursorVisible = ref(true)
 const isTyping = ref(false)
+const commandHistory = ref<string[]>([])
+
+// 游戏状态管理
+const gameState = ref<any>(null)
+const gameInterval = ref<number | null>(null)
+const gameKeyListener = ref<((event: KeyboardEvent) => void) | null>(null)
+
+// 音频播放器
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+const currentTrack = ref<any | null>(null)
 
 // 拖拽状态
 const isDragging = ref(false)
@@ -115,12 +125,18 @@ const scrollToBottom = () => {
 
 // 启动光标闪烁
 onMounted(() => {
+  // 初始化音频播放器
+  audioPlayer.value = new Audio()
+  audioPlayer.value.volume = 0.5
+  
   // 确保光标开始时可见
   cursorVisible.value = true
   
   cursorBlinkIntervalId = setInterval(() => {
     if (!isTyping.value) {
       cursorVisible.value = !cursorVisible.value
+    } else {
+      cursorVisible.value = true
     }
   }, 500)
 
@@ -133,7 +149,11 @@ onMounted(() => {
   // 聚焦输入框 - 延迟聚焦避免阻塞
   nextTick(() => {
     setTimeout(() => {
-      inputRef.value?.focus()
+      if (inputRef.value) {
+        inputRef.value.focus()
+        // 确保光标在输入框末尾
+        inputRef.value.setSelectionRange(terminalInput.value.length, terminalInput.value.length)
+      }
     }, 100)
   })
   
@@ -569,6 +589,15 @@ onUnmounted(() => {
     simpleParticleSystem.dispose()
   }
 
+  // 清理游戏状态
+  stopCurrentGame()
+  
+  // 清理音频播放器
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+    audioPlayer.value.src = ''
+    audioPlayer.value = null
+  }
 
   window.removeEventListener('resize', onWindowResize)
   
@@ -777,6 +806,9 @@ const handleCommand = async () => {
   const input = terminalInput.value.trim()
   if (!input) return
 
+  // 添加到命令历史
+  commandHistory.value.push(input)
+
   terminalOutput.value.push({
     type: 'command',
     content: `${currentPath.value}> ${input}`,
@@ -831,8 +863,7 @@ const handleCommand = async () => {
       await typeText(new Date().toString())
       break
     case 'echo':
-      terminalOutput.value.push({ type: 'output', content: '' })
-      await typeText(args.join(' ') || '')
+      await echoText(args.join(' '))
       break
     case 'snake':
       await playSnake()
@@ -1134,12 +1165,72 @@ const calculator = async (expression: string) => {
 }
 
 const playSnake = async () => {
+  // 清理之前的游戏
+  stopCurrentGame()
+  
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('🐍 Snake Game')
+  await typeText('🐍 Starting Snake Game...')
+  
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Coming soon! This will be an awesome ASCII snake game.')
+  await typeText('Use WASD keys to control the snake. Press Q to quit.')
+  
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Stay tuned for the full implementation!')
+  await typeText('Press SPACE to start!')
+
+  // 初始化游戏状态
+  gameState.value = {
+    type: 'snake',
+    snake: [[7, 15]],
+    food: generateFood([[7, 15]]),
+    direction: 'right',
+    score: 0,
+    gameOver: false,
+    started: false
+  }
+
+  // 添加键盘监听
+  gameKeyListener.value = (event: KeyboardEvent) => {
+    if (!gameState.value || gameState.value.type !== 'snake') return
+    
+    event.preventDefault()
+    
+    if (!gameState.value.started && event.code === 'Space') {
+      startSnakeGame()
+      return
+    }
+    
+    if (!gameState.value.started) return
+    
+    const { direction } = gameState.value
+    
+    switch (event.code) {
+      case 'KeyW':
+      case 'ArrowUp':
+        if (direction !== 'down') gameState.value.direction = 'up'
+        break
+      case 'KeyS':
+      case 'ArrowDown':
+        if (direction !== 'up') gameState.value.direction = 'down'
+        break
+      case 'KeyA':
+      case 'ArrowLeft':
+        if (direction !== 'right') gameState.value.direction = 'left'
+        break
+      case 'KeyD':
+      case 'ArrowRight':
+        if (direction !== 'left') gameState.value.direction = 'right'
+        break
+      case 'KeyQ':
+        stopCurrentGame()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        typeText('Game quit. Type any command to continue.')
+        break
+    }
+  }
+  
+  document.addEventListener('keydown', gameKeyListener.value)
+  
+  await renderSnakeGame()
 }
 
 const play2048 = async () => {
@@ -1151,13 +1242,61 @@ const play2048 = async () => {
   await typeText('It will be epic!')
 }
 
+const echoText = async (text: string) => {
+  // 检查是否在猜数字游戏中
+  if (gameState.value && gameState.value.type === 'guess') {
+    const guess = parseInt(text)
+    
+    if (isNaN(guess)) {
+      terminalOutput.value.push({ type: 'error', content: 'Please enter a valid number!' })
+      return
+    }
+    
+    gameState.value.attempts++
+    const { number, attempts, maxAttempts } = gameState.value
+    
+    if (guess === number) {
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`🎉 Congratulations! You guessed it in ${attempts} attempts!`)
+      gameState.value = null
+    } else if (attempts >= maxAttempts) {
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`💀 Game Over! The number was ${number}`)
+      gameState.value = null
+    } else {
+      const hint = guess < number ? 'Too low!' : 'Too high!'
+      const remaining = maxAttempts - attempts
+      terminalOutput.value.push({ type: 'output', content: '' })
+      await typeText(`${hint} ${remaining} attempts remaining.`)
+    }
+    return
+  }
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText(text || '')
+}
+
 const playGuessNumber = async () => {
+  const randomNumber = Math.floor(Math.random() * 100) + 1
+  
+  gameState.value = {
+    type: 'guess',
+    number: randomNumber,
+    attempts: 0,
+    maxAttempts: 7
+  }
+
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('🎯 Number Guessing Game')
+  await typeText('🎯 Number Guessing Game!')
+  
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Coming soon! Guess the number between 1-100.')
+  await typeText('I\'m thinking of a number between 1 and 100.')
+  
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Perfect for testing your luck!')
+  await typeText('You have 7 attempts. Type your guess as a command!')
+  
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Example: echo 42')
 }
 
 // GitHub API集成
@@ -1316,20 +1455,63 @@ const createFile = async (fileName: string) => {
   await typeText(`File '${fileName}' created successfully.`)
 }
 
+const fetchAndPlayRandomTrack = async () => {
+  terminalOutput.value.push({ type: 'output', content: '' })
+  await typeText('Fetching music...', 20)
+
+  try {
+    const clientId = '3e247de8'
+    const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=50&tags=lounge,chillout&order=popularity_month`)
+    const data = await response.json()
+
+    if (data.results && data.results.length > 0) {
+      const track = data.results[Math.floor(Math.random() * data.results.length)]
+      currentTrack.value = track
+      if (audioPlayer.value) {
+        audioPlayer.value.src = track.audio
+        await audioPlayer.value.play()
+        terminalOutput.value.push({ type: 'output', content: '' })
+        await typeText(`🎵 Now playing: ${track.name} - ${track.artist_name}`, 20)
+      }
+    } else {
+      terminalOutput.value.push({ type: 'error', content: 'Could not find any suitable music, please try again later.' })
+    }
+  } catch (error) {
+    console.error('Error fetching music:', error)
+    terminalOutput.value.push({ type: 'error', content: 'Failed to fetch music. Please check your network connection.' })
+  }
+}
+
 const playMusic = async (args: string[]) => {
   const subCommand = args[0] || 'play'
 
   switch (subCommand) {
     case 'play':
     case 'next':
-      terminalOutput.value.push({ type: 'output', content: '' })
-      await typeText('🎵 Music player coming soon!')
-      terminalOutput.value.push({ type: 'output', content: '' })
-      await typeText('Will support streaming music from various sources.')
+      await fetchAndPlayRandomTrack()
       break
     case 'stop':
-      terminalOutput.value.push({ type: 'output', content: '' })
-      await typeText('⏹️ Music stopped')
+      if (audioPlayer.value && audioPlayer.value.src) {
+        audioPlayer.value.pause()
+        audioPlayer.value.src = ''
+        currentTrack.value = null
+        terminalOutput.value.push({ type: 'output', content: '⏹️ Music stopped' })
+      } else {
+        terminalOutput.value.push({ type: 'error', content: 'No music is playing' })
+      }
+      break
+    case 'volume':
+      if (!audioPlayer.value || !audioPlayer.value.src) {
+        terminalOutput.value.push({ type: 'error', content: 'No music is playing' })
+        return
+      }
+      const volume = parseInt(args[1], 10)
+      if (!isNaN(volume) && volume >= 0 && volume <= 100) {
+        audioPlayer.value.volume = volume / 100
+        terminalOutput.value.push({ type: 'output', content: `🔊 Volume set to: ${volume}%` })
+      } else {
+        terminalOutput.value.push({ type: 'error', content: 'Usage: music volume <0-100>' })
+      }
       break
     default:
       terminalOutput.value.push({ type: 'error', content: `Unknown command: 'music ${subCommand}'` })
@@ -1474,10 +1656,130 @@ const colorTool = async (args: string[]) => {
 const showHistory = async () => {
   terminalOutput.value.push({ type: 'output', content: '' })
   await typeText('Command History:')
+
+  if (commandHistory.value.length === 0) {
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('No commands in history yet.')
+    return
+  }
+
+  for (let i = 0; i < commandHistory.value.length; i++) {
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`${i + 1}. ${commandHistory.value[i]}`, 10)
+  }
+}
+
+// Focus input function
+const focusInput = () => {
+  nextTick(() => {
+    inputRef.value?.focus()
+  })
+}
+
+// Game helper functions
+const generateFood = (snake: number[][]) => {
+  let food: number[]
+  do {
+    food = [Math.floor(Math.random() * 15), Math.floor(Math.random() * 30)]
+  } while (snake.some(([x, y]) => x === food[0] && y === food[1]))
+  return food
+}
+
+const startSnakeGame = () => {
+  if (!gameState.value) return
+  
+  gameState.value.started = true
+  
+  gameInterval.value = setInterval(() => {
+    if (!gameState.value || gameState.value.gameOver) return
+    
+    updateSnakeGame()
+  }, 200)
+}
+
+const updateSnakeGame = async () => {
+  if (!gameState.value || gameState.value.type !== 'snake') return
+  
+  const { snake, food, direction } = gameState.value
+  const head = [...snake[0]]
+  
+  // 移动蛇头
+  switch (direction) {
+    case 'up': head[0]--; break
+    case 'down': head[0]++; break
+    case 'left': head[1]--; break
+    case 'right': head[1]++; break
+  }
+  
+  // 检查碰撞
+  if (head[0] < 0 || head[0] >= 15 || head[1] < 0 || head[1] >= 30 ||
+      snake.some(([x, y]: [number, number]) => x === head[0] && y === head[1])) {
+    gameState.value.gameOver = true
+    stopCurrentGame()
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText(`💀 Game Over! Final Score: ${gameState.value.score}`)
+    terminalOutput.value.push({ type: 'output', content: '' })
+    await typeText('Type "snake" to play again or any other command to continue.')
+    return
+  }
+  
+  snake.unshift(head)
+  
+  // 检查是否吃到食物
+  if (head[0] === food[0] && head[1] === food[1]) {
+    gameState.value.score += 10
+    gameState.value.food = generateFood(snake)
+  } else {
+    snake.pop()
+  }
+  
+  await renderSnakeGame()
+}
+
+const renderSnakeGame = async () => {
+  if (!gameState.value || gameState.value.type !== 'snake') return
+
+  const { snake, food, score, started } = gameState.value
+  
+  // 清除之前的游戏画面（保留最近几行输出）
+  const keepLines = terminalOutput.value.slice(0, -20)
+  terminalOutput.value.splice(0, terminalOutput.value.length, ...keepLines)
+  
+  let board = Array(15).fill(null).map(() => Array(30).fill('·'))
+
+  snake.forEach(([x, y]: [number, number], index: number) => {
+    if (x >= 0 && x < 15 && y >= 0 && y < 30) {
+      board[x][y] = index === 0 ? '●' : '█'
+    }
+  })
+
+  if (food[0] >= 0 && food[0] < 15 && food[1] >= 0 && food[1] < 30) {
+    board[food[0]][food[1]] = '🍎'
+  }
+
   terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('History feature coming soon!')
-  terminalOutput.value.push({ type: 'output', content: '' })
-  await typeText('Will track all your previous commands.')
+  terminalOutput.value.push({ type: 'output', content: `Score: ${score} | ${started ? 'Use WASD to move, Q to quit' : 'Press SPACE to start'}` })
+  terminalOutput.value.push({ type: 'output', content: '┌' + '─'.repeat(30) + '┐' })
+  
+  for (const row of board) {
+    terminalOutput.value.push({ type: 'output', content: '│' + row.join('') + '│' })
+  }
+  
+  terminalOutput.value.push({ type: 'output', content: '└' + '─'.repeat(30) + '┘' })
+}
+
+const stopCurrentGame = () => {
+  if (gameInterval.value) {
+    clearInterval(gameInterval.value)
+    gameInterval.value = null
+  }
+  
+  if (gameKeyListener.value) {
+    document.removeEventListener('keydown', gameKeyListener.value)
+    gameKeyListener.value = null
+  }
+  
+  gameState.value = null
 }
 </script>
 
@@ -1518,7 +1820,7 @@ const showHistory = async () => {
         </div>
 
         <!-- 终端内容 -->
-        <div ref="terminalContentRef" class="terminal-content" :class="[themeClasses.text]">
+        <div ref="terminalContentRef" class="terminal-content" :class="[themeClasses.text]" @click="focusInput">
           <!-- 终端输出历史 -->
           <div v-for="(line, index) in terminalOutput" :key="index" class="terminal-line">
             <div :class="{
@@ -1540,12 +1842,16 @@ const showHistory = async () => {
                 type="text"
                 class="command-input"
                 @keydown.enter="handleCommand"
-                @focus="cursorVisible = true"
-                @blur="cursorVisible = false"
-                @input="cursorVisible = true"
-                :style="{ caretColor: 'transparent' }"
+                @focus="isTyping = true"
+                @blur="isTyping = false"
+                @input="isTyping = true"
+                @keydown="isTyping = true"
+                spellcheck="false"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
               />
-              <span v-if="cursorVisible" class="cursor" :style="cursorStyle"></span>
+              <span v-if="cursorVisible && !isTyping" class="cursor" :style="cursorStyle"></span>
             </div>
           </div>
         </div>
@@ -1702,6 +2008,7 @@ const showHistory = async () => {
   font-family: 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.4;
+  cursor: text;
 }
 
 .terminal-line {
@@ -1729,7 +2036,10 @@ const showHistory = async () => {
   font-size: inherit;
   width: 100%;
   position: relative;
-  z-index: 1;
+  z-index: 10;
+  caret-color: white;
+  cursor: text;
+  pointer-events: auto;
 }
 
 .cursor {
