@@ -69,12 +69,55 @@ interface TerminalLine {
 const terminalOutput = ref<TerminalLine[]>([])
 const inputRef = ref<HTMLInputElement>()
 const particlesRef = ref<HTMLElement>()
+const terminalContentRef = ref<HTMLElement>()
 
 // 计算当前主题样式
 const themeClasses = computed(() => themes[currentTheme.value as keyof typeof themes])
 
+// 创建一个全局的canvas用于文本宽度计算，避免重复创建
+let textMeasureCanvas: HTMLCanvasElement | null = null
+let textMeasureContext: CanvasRenderingContext2D | null = null
+
+// 计算光标样式位置
+const cursorStyle = computed(() => {
+  if (!inputRef.value) return {}
+  
+  // 初始化canvas（只创建一次）
+  if (!textMeasureCanvas) {
+    textMeasureCanvas = document.createElement('canvas')
+    textMeasureContext = textMeasureCanvas.getContext('2d')
+    if (textMeasureContext) {
+      textMeasureContext.font = '14px "Courier New", monospace'
+    }
+  }
+  
+  if (!textMeasureContext) return {}
+  
+  // 计算当前输入文本的宽度
+  const textWidth = textMeasureContext.measureText(terminalInput.value).width
+  
+  return {
+    position: 'absolute' as const,
+    left: `${textWidth + 2}px`, // 添加小偏移
+    top: '0px',
+    pointerEvents: 'none' as const
+  }
+})
+
+// 自动滚动到底部的函数
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (terminalContentRef.value) {
+      terminalContentRef.value.scrollTop = terminalContentRef.value.scrollHeight
+    }
+  })
+}
+
 // 启动光标闪烁
 onMounted(() => {
+  // 确保光标开始时可见
+  cursorVisible.value = true
+  
   cursorBlinkIntervalId = setInterval(() => {
     if (!isTyping.value) {
       cursorVisible.value = !cursorVisible.value
@@ -620,10 +663,14 @@ const typeText = async (text: string, delay = 30) => {
     if (line) {
       line.content = text.substring(0, i)
     }
+    // 在每次更新内容时滚动到底部
+    scrollToBottom()
     await new Promise(resolve => setTimeout(resolve, delay))
   }
 
   isTyping.value = false
+  // 打字完成后再次滚动到底部
+  scrollToBottom()
 }
 
 // 获取当前时间
@@ -660,6 +707,9 @@ const showStartupInfo = async () => {
   await typeText('Type "help" for commands or try "snake" for a quick game!')
 
   terminalOutput.value.push({ type: 'info', content: '' })
+  
+  // 启动信息显示完毕后滚动到底部
+  scrollToBottom()
 }
 
 
@@ -732,6 +782,9 @@ const handleCommand = async () => {
     content: `${currentPath.value}> ${input}`,
     timestamp: getCurrentTime()
   })
+  
+  // 添加命令后滚动到底部
+  scrollToBottom()
 
   // 解析命令
   const [command, ...args] = input.toLowerCase().split(' ')
@@ -836,6 +889,14 @@ const handleCommand = async () => {
   }
 
   terminalInput.value = ''
+  
+  // 执行完命令后滚动到底部
+  scrollToBottom()
+  
+  // 重新聚焦输入框
+  nextTick(() => {
+    inputRef.value?.focus()
+  })
 }
 
 // 命令实现
@@ -1457,7 +1518,7 @@ const showHistory = async () => {
         </div>
 
         <!-- 终端内容 -->
-        <div class="terminal-content" :class="[themeClasses.text]">
+        <div ref="terminalContentRef" class="terminal-content" :class="[themeClasses.text]">
           <!-- 终端输出历史 -->
           <div v-for="(line, index) in terminalOutput" :key="index" class="terminal-line">
             <div :class="{
@@ -1471,15 +1532,21 @@ const showHistory = async () => {
 
           <!-- 当前命令行 -->
           <div class="command-line">
-            <span :class="[themeClasses.accent]">{{ currentPath }}></span>
-            <input
-              ref="inputRef"
-              v-model="terminalInput"
-              type="text"
-              class="command-input"
-              @keydown.enter="handleCommand"
-            />
-            <span v-if="cursorVisible" class="cursor"></span>
+            <span :class="[themeClasses.accent]">{{ currentPath }}&gt;</span>
+            <div class="input-container">
+              <input
+                ref="inputRef"
+                v-model="terminalInput"
+                type="text"
+                class="command-input"
+                @keydown.enter="handleCommand"
+                @focus="cursorVisible = true"
+                @blur="cursorVisible = false"
+                @input="cursorVisible = true"
+                :style="{ caretColor: 'transparent' }"
+              />
+              <span v-if="cursorVisible" class="cursor" :style="cursorStyle"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1647,6 +1714,12 @@ const showHistory = async () => {
   margin-top: 8px;
 }
 
+.input-container {
+  position: relative;
+  flex: 1;
+  margin-left: 8px;
+}
+
 .command-input {
   background: transparent;
   border: none;
@@ -1654,15 +1727,24 @@ const showHistory = async () => {
   color: inherit;
   font-family: inherit;
   font-size: inherit;
-  flex: 1;
-  margin-left: 8px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .cursor {
-  width: 8px;
+  width: 2px;
   height: 16px;
   background: white;
-  margin-left: 2px;
+  position: absolute;
+  top: 0;
+  animation: blink 1s infinite;
+  pointer-events: none;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 /* 滚动条样式 */
