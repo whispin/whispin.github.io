@@ -55,7 +55,7 @@ export class DeepSpaceLayer extends ParticleLayer {
       const i3 = i * 3
       
       // 生成更均匀分布的深空位置
-      const position = this.generateDeepSpacePosition(i)
+      const position = this.generateDeepSpacePosition()
       this.particleData.position[i3] = position.x
       this.particleData.position[i3 + 1] = position.y
       this.particleData.position[i3 + 2] = position.z
@@ -94,7 +94,7 @@ export class DeepSpaceLayer extends ParticleLayer {
   /**
    * 生成深空位置 - 更均匀的球形分布
    */
-  private generateDeepSpacePosition(index: number): THREE.Vector3 {
+  private generateDeepSpacePosition(): THREE.Vector3 {
     // 使用更均匀的球形分布
     const phi = Math.acos(1 - 2 * Math.random()) // 0 到 π
     const theta = 2 * Math.PI * Math.random()    // 0 到 2π
