@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { ParticleLayer } from '../ParticleLayer'
 import type { LayerConfiguration } from '../ParticleLayer'
 import { SpatialDistribution, ParticleType } from '../types'
+import { ColorSystem } from '../utils/ColorSystem'
 
 export class MidgroundLayer extends ParticleLayer {
   constructor() {
@@ -9,22 +10,23 @@ export class MidgroundLayer extends ParticleLayer {
     const depthRange: [number, number] = [50, 120]
     const sizeRange: [number, number] = [2.0, 8.0]
     
+    // 使用真实星云发射线色彩
     const colorPalette = [
-      new THREE.Color(0x3399ff),      // 深蓝星云
-      new THREE.Color(0xff4d99),      // 洋红星云
-      new THREE.Color(0x66ff4d),      // 绿色星云
-      new THREE.Color(0xffb333),      // 橙色星云
-      new THREE.Color(0x9933ff),      // 紫色星云
-      new THREE.Color(0x4dffe6),      // 青色星云
-      new THREE.Color(0xff6666),      // 红色星云
-      new THREE.Color(0xcccc33),      // 黄色星云
-      new THREE.Color(0x804dcc),      // 深紫星云
-      new THREE.Color(0x33cc80),      // 翠绿星云
-      new THREE.Color(0xff8033),      // 珊瑚橙
-      new THREE.Color(0x8033ff),      // 深紫蓝
-      new THREE.Color(0x33ff80),      // 春绿
-      new THREE.Color(0xff3380),      // 玫瑰红
-      new THREE.Color(0x3380ff),      // 钴蓝
+      new THREE.Color(0xdc143c),  // H-alpha (656.3nm) - 氢发射线
+      new THREE.Color(0x00ff7f),  // [OIII] (500.7nm) - 氧离子
+      new THREE.Color(0x4169e1),  // H-beta (486.1nm) - 氢发射线
+      new THREE.Color(0xff1493),  // [SII] (671.6nm) - 硫离子
+      new THREE.Color(0x008b8b),  // [NII] (658.3nm) - 氮离子
+      new THREE.Color(0xffd700),  // [OIII] (495.9nm) - 氧离子
+      new THREE.Color(0x800080),  // He II (468.6nm) - 氦离子
+      new THREE.Color(0xff6347),  // [ArIII] (713.6nm) - 氩离子
+      ColorSystem.stellarClassToColor('G'), // 类太阳恒星
+      ColorSystem.stellarClassToColor('A'), // 白色恒星
+      ColorSystem.stellarClassToColor('B'), // 蓝白恒星
+      ColorSystem.temperatureToColor(3200), // 红巨星
+      ColorSystem.temperatureToColor(6000), // 黄色恒星
+      ColorSystem.temperatureToColor(12000), // 蓝色恒星
+      ColorSystem.temperatureToColor(25000), // 热恒星
     ]
     
     const layerConfig: LayerConfiguration = {
@@ -59,13 +61,32 @@ export class MidgroundLayer extends ParticleLayer {
   }
 
 
-  // 中景层有更丰富的颜色变化
-  protected generateParticleColor(depth: number, _distanceFromCenter: number): THREE.Color {
-    const color = super.generateParticleColor(depth, _distanceFromCenter)
+  // 中景层根据粒子类型使用不同的真实颜色
+  protected generateParticleColor(depth: number, distanceFromCenter: number): THREE.Color {
+    // 获取当前粒子的类型
+    const particleIndex = this.particleData.type?.length || 0
+    const particleType = this.particleData.type?.[particleIndex - 1] || ParticleType.STAR
     
-    // 添加颜色变化
-    const hue = Math.random() * 0.1 - 0.05
-    color.offsetHSL(hue, 0, 0)
+    let color: THREE.Color
+    
+    // 根据粒子类型使用不同的颜色策略
+    if (particleType === ParticleType.NEBULA) {
+      color = ColorSystem.getRealisticNebulaColor()
+      // 星云粒子有发光效果
+      color.multiplyScalar(1.2 + depth * 0.3)
+    } else if (particleType === ParticleType.ENERGY_FIELD) {
+      color = ColorSystem.temperatureToColor(50000) // 高能量场
+      color.multiplyScalar(1.5)
+    } else {
+      // 恒星类型
+      color = ColorSystem.getRealisticStellarColor()
+      // 中等距离的轻微红化
+      const distance = distanceFromCenter * 50
+      color = ColorSystem.applyInterstellarReddening(color, distance, 0.005)
+    }
+    
+    // 深度调节亮度
+    color.multiplyScalar(0.7 + depth * 0.5)
     
     return color
   }

@@ -8,13 +8,12 @@ import { BackgroundLayer } from './particle-system/layers/BackgroundLayer'
 import { SimpleParticleTest } from './particle-system/test'
 import { SimpleParticleSystem } from './particle-system/simple/SimpleParticleSystem'
 import { errorHandler, ErrorSeverity } from './utils/ErrorHandler'
+import { ColorSystem } from './particle-system/utils/ColorSystem'
 
 
 // 终端状态
 const terminalInput = ref('')
 const currentPath = ref('C:\\Users\\whispin')
-// const commandHistory = ref<string[]>([])
-// const historyIndex = ref(-1)
 const cursorVisible = ref(true)
 const isTyping = ref(false)
 
@@ -76,6 +75,9 @@ onMounted(() => {
     }
   }, 500)
 
+  // 初始化真实色彩系统
+  ColorSystem.initialize()
+
   // 显示启动信息
   showStartupInfo()
 
@@ -94,8 +96,6 @@ onMounted(() => {
 
 // Three.js 初始化
 const initThreeJS = () => {
-  console.log('Starting Three.js initialization...')
-  console.log('threeContainer.value:', threeContainer.value)
   
   if (!threeContainer.value) {
     console.error('Three.js container not found!')
@@ -110,16 +110,13 @@ const initThreeJS = () => {
       console.warn('WebGL not supported, falling back to CSS particles only')
       return
     }
-    console.log('WebGL supported!')
 
     // 创建场景
     scene = new THREE.Scene()
-    console.log('Scene created')
 
     // 创建相机
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
     camera.position.z = 5
-    console.log('Camera created')
 
     // 创建渲染器 - 优化配置
     renderer = new THREE.WebGLRenderer({
@@ -140,7 +137,6 @@ const initThreeJS = () => {
     const height = window.innerHeight
     const pixelRatio = Math.min(window.devicePixelRatio, 2) // 限制最大像素比为2
     
-    console.log(`Initializing Three.js renderer: ${width}x${height}, pixelRatio: ${pixelRatio}`)
     renderer.setSize(width, height, false) // false = 不更新样式
     renderer.setPixelRatio(pixelRatio)
 
@@ -159,14 +155,10 @@ const initThreeJS = () => {
       display: block !important;
     `
 
-    console.log('Canvas style applied:', canvas.style.cssText)
 
     threeContainer.value.appendChild(canvas)
 
     // 调试信息
-    console.log('Three.js container:', threeContainer.value)
-    console.log('Container bounds:', threeContainer.value.getBoundingClientRect())
-    console.log('Canvas bounds:', canvas.getBoundingClientRect())
     
     // 添加WebGL上下文丢失处理
     webglContextLostHandler = (event: Event) => {
@@ -179,40 +171,26 @@ const initThreeJS = () => {
     }
     
     webglContextRestoredHandler = () => {
-      console.log('WebGL context restored')
       initThreeJS()
     }
     
     renderer.domElement.addEventListener('webglcontextlost', webglContextLostHandler)
     renderer.domElement.addEventListener('webglcontextrestored', webglContextRestoredHandler)
     
-    console.log('Renderer created and added to DOM')
 
-    // 添加一个简单的测试立方体来验证渲染（暂时注释掉）
-    // const testGeometry = new THREE.BoxGeometry(1, 1, 1)
-    // const testMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-    // const testCube = new THREE.Mesh(testGeometry, testMaterial)
-    // testCube.name = 'testCube'
-    // testCube.position.set(0, 0, 0)
-    // scene.add(testCube)
-    // console.log('Test cube added to scene')
 
     // 创建简单的粒子系统
     createSimpleParticleSystem()
-    console.log('Simple particle system created')
 
     // 创建简单的粒子系统测试
     createSimpleParticleTest()
-    console.log('Simple particle test created')
 
     // 创建新的模块化粒子系统
     createNewParticleSystem()
-    console.log('New modular particle system created')
 
     // 初始化增强交互系统
     try {
       particleSystemManager.initializeInteraction(camera)
-      console.log('Enhanced interaction system initialized')
     } catch (error) {
       console.error('Error initializing interaction system:', error)
     }
@@ -220,23 +198,19 @@ const initThreeJS = () => {
     // 初始化渲染优化器
     try {
       particleSystemManager.initializeRenderOptimizer(camera)
-      console.log('Render optimizer initialized')
     } catch (error) {
       console.error('Error initializing render optimizer:', error)
     }
 
     // 保留旧的鼠标交互作为备用
     setupMouseInteraction()
-    console.log('Backup mouse interaction setup')
     
     // 开始动画循环
     animate()
-    console.log('Animation started')
     
     // 监听窗口大小变化
     window.addEventListener('resize', onWindowResize)
     
-    console.log('Three.js initialized successfully')
   } catch (error) {
     console.error('Three.js initialization failed:', error)
   }
@@ -244,7 +218,6 @@ const initThreeJS = () => {
 
 // 创建简单的测试粒子系统
 const createSimpleTestParticleSystem = () => {
-  console.log('Creating simple test particle system...')
 
   try {
     // 创建简单的粒子几何体
@@ -308,9 +281,6 @@ const createSimpleTestParticleSystem = () => {
     const particles = new THREE.Points(geometry, material)
     scene.add(particles)
 
-    console.log('Simple test particle system created successfully')
-    console.log('Particle count:', particleCount)
-    console.log('Scene children count:', scene.children.length)
 
     // 存储到全局变量以便动画更新
     window.testParticles = particles
@@ -322,12 +292,10 @@ const createSimpleTestParticleSystem = () => {
 
 // 创建简单的粒子系统
 const createSimpleParticleSystem = () => {
-  console.log('Creating simple particle system...')
   
   try {
     simpleParticleSystem = new SimpleParticleSystem(scene)
     simpleParticleSystem.initialize()
-    console.log('Simple particle system created successfully')
   } catch (error) {
     console.error('Error creating simple particle system:', error)
   }
@@ -335,12 +303,10 @@ const createSimpleParticleSystem = () => {
 
 // 创建简单的粒子系统测试
 const createSimpleParticleTest = () => {
-  console.log('Creating simple particle test...')
   
   try {
     simpleParticleTest = new SimpleParticleTest(scene)
     simpleParticleTest.create()
-    console.log('Simple particle test created successfully')
   } catch (error) {
     console.error('Error creating simple particle test:', error)
   }
@@ -348,7 +314,6 @@ const createSimpleParticleTest = () => {
 
 // 创建新的增强粒子系统
 const createNewParticleSystem = () => {
-  console.log('Creating new enhanced particle system...')
 
   // 先尝试简单的测试系统
   createSimpleTestParticleSystem()
@@ -356,32 +321,21 @@ const createNewParticleSystem = () => {
   try {
     // 初始化粒子系统管理器
     particleSystemManager = new ParticleSystemManager(scene)
-    console.log('ParticleSystemManager created')
 
     particleSystemManager.initialize()
-    console.log('ParticleSystemManager initialized')
 
     // 创建远景层（先添加，在最后面渲染）
-    console.log('Creating background layer...')
     const backgroundLayer = new BackgroundLayer()
     particleSystemManager.addLayer(backgroundLayer)
-    console.log('Background layer added')
 
     // 创建中景层
-    console.log('Creating midground layer...')
     const midgroundLayer = new MidgroundLayer()
     particleSystemManager.addLayer(midgroundLayer)
-    console.log('Midground layer added')
 
     // 创建前景层（最后添加，在最前面渲染）
-    console.log('Creating foreground layer...')
     const foregroundLayer = new ForegroundLayer()
     particleSystemManager.addLayer(foregroundLayer)
-    console.log('Foreground layer added')
 
-    console.log('Enhanced particle system created successfully')
-    console.log('Total particles:', particleSystemManager.getTotalParticleCount())
-    console.log('Scene children count:', scene.children.length)
 
     particleSystemManager.debugInfo()
   } catch (error) {
@@ -526,7 +480,6 @@ const onWindowResize = () => {
       particleSystemManager.onWindowResize(width, height)
     }
 
-    console.log(`Window resized to ${width}x${height}, pixelRatio: ${pixelRatio}`)
   }, 100) // 100ms 防抖
 }
 

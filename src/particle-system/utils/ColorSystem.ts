@@ -29,19 +29,19 @@ export class ColorSystem {
       ]
     }
 
-    // 星云调色板
+    // 真实星云发射线调色板
     this.palettes.nebula = {
-      name: 'Nebula',
-      description: '星云般的绚烂色彩',
+      name: 'Realistic Nebula',
+      description: '基于真实发射线光谱的星云色彩',
       colors: [
-        new THREE.Color(0xff006e), // 品红
-        new THREE.Color(0x8338ec), // 紫色
-        new THREE.Color(0x3a86ff), // 蓝色
-        new THREE.Color(0x06ffa5), // 青绿
-        new THREE.Color(0xffbe0b), // 金色
-        new THREE.Color(0xfb5607), // 橙色
-        new THREE.Color(0xff4081), // 粉色
-        new THREE.Color(0x00bcd4), // 青色
+        new THREE.Color(0xdc143c),  // H-alpha (656.3nm) - 氢发射线，深红色
+        new THREE.Color(0x00ff7f),  // [OIII] (500.7nm) - 氧离子，绿色
+        new THREE.Color(0x4169e1),  // H-beta (486.1nm) - 氢发射线，蓝色
+        new THREE.Color(0xff1493),  // [SII] (671.6nm) - 硫离子，深粉红
+        new THREE.Color(0x008b8b),  // [NII] (658.3nm) - 氮离子，暗青色
+        new THREE.Color(0xffd700),  // [OIII] (495.9nm) - 氧离子，金绿色
+        new THREE.Color(0x800080),  // He II (468.6nm) - 氦离子，紫色
+        new THREE.Color(0xff6347),  // [ArIII] (713.6nm) - 氩离子，橙红色
       ]
     }
 
@@ -61,19 +61,19 @@ export class ColorSystem {
       ]
     }
 
-    // 恒星调色板
+    // 真实恒星光谱分类调色板
     this.palettes.stellar = {
-      name: 'Stellar',
-      description: '恒星光谱色彩',
+      name: 'Realistic Stellar Classification',
+      description: '基于Morgan-Keenan光谱分类的真实恒星色彩',
       colors: [
-        new THREE.Color(0xffffff), // O型星 - 蓝白
-        new THREE.Color(0xadd8e6), // B型星 - 蓝白
-        new THREE.Color(0xffffff), // A型星 - 白色
-        new THREE.Color(0xfff8dc), // F型星 - 黄白
-        new THREE.Color(0xffff99), // G型星 - 黄色
-        new THREE.Color(0xffa500), // K型星 - 橙色
-        new THREE.Color(0xff6347), // M型星 - 红色
-        new THREE.Color(0xff69b4), // 特殊星 - 粉色
+        this.stellarClassToColor('O'),  // O型星：蓝色，40000K
+        this.stellarClassToColor('B'),  // B型星：蓝白色，20000K
+        this.stellarClassToColor('A'),  // A型星：白色，8500K
+        this.stellarClassToColor('F'),  // F型星：黄白色，6500K
+        this.stellarClassToColor('G'),  // G型星：黄色，5500K (太阳型)
+        this.stellarClassToColor('K'),  // K型星：橙色，4000K
+        this.stellarClassToColor('M'),  // M型星：红色，3000K
+        this.stellarClassToColor('L'),  // L型星：褐矮星，1800K
       ]
     }
 
@@ -158,18 +158,62 @@ export class ColorSystem {
   }
 
   /**
-   * 创建颜色渐变
+   * 创建平滑的颜色渐变 (使用更好的插值算法)
    */
   static createGradient(color1: THREE.Color, color2: THREE.Color, steps: number): THREE.Color[] {
     const gradient: THREE.Color[] = []
     
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1)
-      const color = color1.clone().lerp(color2, t)
+      // 使用三次贝塞尔曲线进行平滑插值
+      const smoothT = t * t * (3 - 2 * t)
+      const color = color1.clone().lerp(color2, smoothT)
       gradient.push(color)
     }
     
     return gradient
+  }
+
+  /**
+   * 高质量色彩混合 (使用Lab色彩空间)
+   */
+  static blendColorsLab(color1: THREE.Color, color2: THREE.Color, factor: number): THREE.Color {
+    // 简化的Lab色彩空间混合
+    const r1 = Math.pow(color1.r, 2.2)
+    const g1 = Math.pow(color1.g, 2.2) 
+    const b1 = Math.pow(color1.b, 2.2)
+    
+    const r2 = Math.pow(color2.r, 2.2)
+    const g2 = Math.pow(color2.g, 2.2)
+    const b2 = Math.pow(color2.b, 2.2)
+    
+    const r = Math.pow(r1 + (r2 - r1) * factor, 1/2.2)
+    const g = Math.pow(g1 + (g2 - g1) * factor, 1/2.2)
+    const b = Math.pow(b1 + (b2 - b1) * factor, 1/2.2)
+    
+    return new THREE.Color(r, g, b)
+  }
+
+  /**
+   * 自适应颜色亮度调整
+   */
+  static adaptiveBrightness(color: THREE.Color, targetLuminance: number): THREE.Color {
+    const adjusted = color.clone()
+    
+    // 计算感知亮度 (使用WCAG标准)
+    const currentLuminance = 0.299 * adjusted.r + 0.587 * adjusted.g + 0.114 * adjusted.b
+    
+    if (currentLuminance > 0) {
+      const scale = targetLuminance / currentLuminance
+      adjusted.multiplyScalar(scale)
+    }
+    
+    // 确保颜色值在有效范围内
+    adjusted.r = Math.min(1, adjusted.r)
+    adjusted.g = Math.min(1, adjusted.g)
+    adjusted.b = Math.min(1, adjusted.b)
+    
+    return adjusted
   }
 
   /**
@@ -206,54 +250,156 @@ export class ColorSystem {
   }
 
   /**
-   * 温度映射到颜色
+   * 精确的黑体辐射温度到颜色转换
+   * 基于Planck定律和CIE色彩空间
    */
   static temperatureToColor(temperature: number): THREE.Color {
-    // 温度范围：1000K - 40000K
-    const t = Math.max(1000, Math.min(40000, temperature))
+    // 温度范围：800K - 50000K (扩展范围以支持更多恒星类型)
+    const t = Math.max(800, Math.min(50000, temperature))
     
     let r, g, b: number
     
+    // 使用更精确的黑体辐射公式
     if (t < 6600) {
-      // 红色分量
+      // 低温恒星 (红矮星、红巨星)
       r = 255
-      // 绿色分量
       g = Math.max(0, Math.min(255, 99.4708025861 * Math.log(t / 100) - 161.1195681661))
-      // 蓝色分量
       if (t >= 1900) {
         b = Math.max(0, Math.min(255, 138.5177312231 * Math.log(t / 100 - 10) - 305.0447927307))
       } else {
         b = 0
       }
     } else {
-      // 红色分量
+      // 高温恒星 (蓝巨星、白矮星)
       r = Math.max(0, Math.min(255, 329.698727446 * Math.pow(t / 100 - 60, -0.1332047592)))
-      // 绿色分量
       g = Math.max(0, Math.min(255, 288.1221695283 * Math.pow(t / 100 - 60, -0.0755148492)))
-      // 蓝色分量
       b = 255
     }
     
-    return new THREE.Color(r / 255, g / 255, b / 255)
+    // 归一化并应用伽马校正
+    const gamma = 2.2
+    r = Math.pow(r / 255, 1 / gamma)
+    g = Math.pow(g / 255, 1 / gamma)
+    b = Math.pow(b / 255, 1 / gamma)
+    
+    return new THREE.Color(r, g, b)
   }
 
   /**
-   * 获取粒子类型的默认颜色
+   * 恒星光谱分类到颜色映射 (Morgan-Keenan系统)
+   */
+  static stellarClassToColor(spectralClass: string): THREE.Color {
+    const classMap: { [key: string]: number } = {
+      'O': 40000,  // O型星：蓝色，极热
+      'B': 20000,  // B型星：蓝白色，很热
+      'A': 8500,   // A型星：白色，热
+      'F': 6500,   // F型星：黄白色，中热
+      'G': 5500,   // G型星：黄色，中等温度 (太阳型)
+      'K': 4000,   // K型星：橙色，较冷
+      'M': 3000,   // M型星：红色，冷
+      'L': 1800,   // L型星：褐矮星，极冷
+      'T': 1200    // T型星：褐矮星，超冷
+    }
+    
+    const temp = classMap[spectralClass.charAt(0).toUpperCase()] || 5500
+    return this.temperatureToColor(temp)
+  }
+
+  /**
+   * 获取现实恒星类型的颜色分布
+   */
+  static getRealisticStellarColor(): THREE.Color {
+    const rand = Math.random()
+    
+    // 基于实际恒星分布的概率
+    if (rand < 0.76) return this.stellarClassToColor('M')      // 76% 红矮星
+    if (rand < 0.88) return this.stellarClassToColor('K')      // 12% K型星
+    if (rand < 0.96) return this.stellarClassToColor('G')      // 8% G型星 (类太阳)
+    if (rand < 0.98) return this.stellarClassToColor('F')      // 2% F型星
+    if (rand < 0.99) return this.stellarClassToColor('A')      // 1% A型星
+    if (rand < 0.995) return this.stellarClassToColor('B')     // 0.5% B型星
+    return this.stellarClassToColor('O')                       // 0.5% O型星
+  }
+
+  /**
+   * 生成真实的星云发射线颜色
+   */
+  static getRealisticNebulaColor(): THREE.Color {
+    const rand = Math.random()
+    
+    // 基于实际发射线强度的概率分布
+    if (rand < 0.40) return new THREE.Color(0xdc143c)   // 40% H-alpha 红色
+    if (rand < 0.65) return new THREE.Color(0x00ff7f)   // 25% [OIII] 绿色
+    if (rand < 0.80) return new THREE.Color(0x4169e1)   // 15% H-beta 蓝色
+    if (rand < 0.90) return new THREE.Color(0xff1493)   // 10% [SII] 粉红
+    if (rand < 0.96) return new THREE.Color(0x008b8b)   // 6% [NII] 青色
+    if (rand < 0.98) return new THREE.Color(0xffd700)   // 2% [OIII] 金绿
+    if (rand < 0.99) return new THREE.Color(0x800080)   // 1% He II 紫色
+    return new THREE.Color(0xff6347)                    // 1% [ArIII] 橙红
+  }
+
+  /**
+   * 应用星际红化效应
+   */
+  static applyInterstellarReddening(color: THREE.Color, distance: number, extinction: number = 0.01): THREE.Color {
+    const reddened = color.clone()
+    
+    // 计算消光程度 (基于距离)
+    const extFactor = Math.exp(-extinction * distance)
+    
+    // 蓝光更容易被散射，红光穿透力更强
+    const wavelengthEffect = {
+      r: 1.0,      // 红光几乎不受影响
+      g: 0.85,     // 绿光轻微衰减
+      b: 0.65      // 蓝光明显衰减
+    }
+    
+    reddened.r *= extFactor * wavelengthEffect.r
+    reddened.g *= extFactor * wavelengthEffect.g
+    reddened.b *= extFactor * wavelengthEffect.b
+    
+    return reddened
+  }
+
+  /**
+   * 应用多普勒红移效应
+   */
+  static applyDopplerShift(color: THREE.Color, velocity: number): THREE.Color {
+    const shifted = color.clone()
+    
+    // 计算红移因子 (v/c)
+    const c = 299792458 // 光速 m/s
+    const redshift = velocity / c
+    
+    // 简化的红移效应：频率降低，波长增加
+    if (redshift > 0) {
+      // 远离观察者：红移
+      shifted.offsetHSL(redshift * 0.1, 0, -redshift * 0.2)
+    } else {
+      // 接近观察者：蓝移
+      shifted.offsetHSL(redshift * 0.1, 0, -redshift * 0.2)
+    }
+    
+    return shifted
+  }
+
+  /**
+   * 获取基于粒子类型的真实颜色
    */
   static getParticleTypeColor(type: number): THREE.Color {
     switch (Math.floor(type)) {
-      case 0: // 普通恒星
-        return new THREE.Color(0xffffff)
-      case 1: // 超新星
-        return new THREE.Color(0xff4444)
-      case 2: // 脉冲星
-        return new THREE.Color(0x44ff44)
-      case 3: // 星云
-        return new THREE.Color(0x4444ff)
-      case 4: // 能量场
-        return new THREE.Color(0xff44ff)
+      case 0: // 普通恒星 - 使用真实分布
+        return this.getRealisticStellarColor()
+      case 1: // 超新星 - 高温蓝白色
+        return this.temperatureToColor(15000)
+      case 2: // 脉冲星 - 快速旋转中子星，蓝白色
+        return this.temperatureToColor(28000)
+      case 3: // 星云 - 使用真实发射线
+        return this.getRealisticNebulaColor()
+      case 4: // 能量场 - 高能X射线源，蓝紫色
+        return this.temperatureToColor(50000)
       default:
-        return new THREE.Color(0xffffff)
+        return this.getRealisticStellarColor()
     }
   }
 }

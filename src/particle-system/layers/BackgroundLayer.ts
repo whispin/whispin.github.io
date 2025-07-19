@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { ParticleLayer } from '../ParticleLayer'
 import type { LayerConfiguration } from '../ParticleLayer'
 import { SpatialDistribution, ParticleType } from '../types'
+import { ColorSystem } from '../utils/ColorSystem'
 
 export class BackgroundLayer extends ParticleLayer {
   constructor() {
@@ -9,22 +10,23 @@ export class BackgroundLayer extends ParticleLayer {
     const depthRange: [number, number] = [120, 300]
     const sizeRange: [number, number] = [0.5, 3.0]
     
+    // 使用真实恒星光谱分布生成背景色彩
     const colorPalette = [
-      new THREE.Color(0xccccff),      // 淡蓝白
-      new THREE.Color(0xffe6cc),      // 暖白
-      new THREE.Color(0xe6ccff),      // 淡紫白
-      new THREE.Color(0xccffe6),      // 淡绿白
-      new THREE.Color(0xffcce6),      // 淡粉白
-      new THREE.Color(0xe6ffcc),      // 淡黄白
-      new THREE.Color(0xcce6ff),      // 天蓝白
-      new THREE.Color(0xffcccc),      // 淡红白
-      new THREE.Color(0xe6e6cc),      // 米白
-      new THREE.Color(0xcccce6),      // 银白
-      new THREE.Color(0xffd9cc),      // 桃色
-      new THREE.Color(0xccffd9),      // 薄荷
-      new THREE.Color(0xd9ccff),      // 薰衣草
-      new THREE.Color(0xffffff),      // 纯白
-      new THREE.Color(0xf0f0f0),      // 银灰
+      ColorSystem.stellarClassToColor('M'),   // 红矮星
+      ColorSystem.stellarClassToColor('K'),   // 橙色巨星
+      ColorSystem.stellarClassToColor('G'),   // 类太阳恒星
+      ColorSystem.stellarClassToColor('F'),   // 黄白巨星
+      ColorSystem.stellarClassToColor('A'),   // 白色主序星
+      ColorSystem.stellarClassToColor('B'),   // 蓝白巨星
+      ColorSystem.stellarClassToColor('O'),   // 蓝色超巨星
+      ColorSystem.temperatureToColor(2800),   // 极红矮星
+      ColorSystem.temperatureToColor(3500),   // 典型红矮星
+      ColorSystem.temperatureToColor(5200),   // 橙色K型星
+      ColorSystem.temperatureToColor(5800),   // 太阳色温
+      ColorSystem.temperatureToColor(7000),   // 白色F型星
+      ColorSystem.temperatureToColor(9000),   // 蓝白A型星
+      ColorSystem.temperatureToColor(15000),  // 热B型星
+      ColorSystem.temperatureToColor(30000),  // 极热O型星
     ]
 
     const layerConfig: LayerConfiguration = {
@@ -58,11 +60,18 @@ export class BackgroundLayer extends ParticleLayer {
     return ParticleType.STAR // 95% 普通恒星
   }
 
-  // 背景层需要特殊的颜色处理 - 更接近白色
-  protected generateParticleColor(depth: number, _distanceFromCenter: number): THREE.Color {
-    const color = super.generateParticleColor(depth, _distanceFromCenter)
-    // 背景层特殊处理：更接近白色
-    color.lerp(new THREE.Color(1, 1, 1), 0.7)
+  // 背景层使用真实恒星颜色并应用星际红化效应
+  protected generateParticleColor(depth: number, distanceFromCenter: number): THREE.Color {
+    // 生成基础恒星颜色
+    let color = ColorSystem.getRealisticStellarColor()
+    
+    // 应用星际红化效应 - 距离越远红化越明显
+    const distance = distanceFromCenter * 100 // 转换为合适的距离单位
+    color = ColorSystem.applyInterstellarReddening(color, distance, 0.008)
+    
+    // 背景恒星亮度较低
+    color.multiplyScalar(0.6 + depth * 0.4)
+    
     return color
   }
 }

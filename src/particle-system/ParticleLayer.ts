@@ -48,8 +48,6 @@ export abstract class ParticleLayer implements IParticleLayer {
   }
 
   public create(): void {
-    console.log(`Creating particle layer: ${this.name}`)
-    
     // 生成粒子数据
     this.generateParticles()
     
@@ -62,8 +60,6 @@ export abstract class ParticleLayer implements IParticleLayer {
     // 创建点系统
     this.points = new THREE.Points(this.geometry, this.material)
     this.points.name = this.name
-    
-    console.log(`Created particle layer: ${this.name} with ${this.particleCount} particles`)
   }
 
   public updateUniforms(time: number, mouse: THREE.Vector2): void {
@@ -79,8 +75,6 @@ export abstract class ParticleLayer implements IParticleLayer {
   }
 
   public dispose(): void {
-    console.log(`Disposing particle layer: ${this.name}`)
-    
     // 清理几何体
     if (this.geometry) {
       this.geometry.dispose()
@@ -93,13 +87,9 @@ export abstract class ParticleLayer implements IParticleLayer {
     
     // 清理粒子数据
     this.particleData = null as any
-    
-    console.log(`Disposed particle layer: ${this.name}`)
   }
 
   protected generateParticles(): void {
-    console.log(`Generating ${this.name} particles...`)
-    
     for (let i = 0; i < this.particleCount; i++) {
       const i3 = i * 3
       
@@ -140,8 +130,6 @@ export abstract class ParticleLayer implements IParticleLayer {
       const particleType = this.generateParticleType()
       this.particleData.type[i] = particleType
     }
-    
-    console.log(`Generated ${this.particleCount} ${this.name} particles`)
   }
 
   protected createMaterial(): void {
@@ -159,8 +147,6 @@ export abstract class ParticleLayer implements IParticleLayer {
       depthWrite: false,
       side: THREE.DoubleSide
     })
-
-    console.log(`Created material for ${this.name} layer with intensity ${this.layerConfig.intensity}`)
   }
 
   protected initializeParticleData(): void {
@@ -289,9 +275,8 @@ export abstract class ParticleLayer implements IParticleLayer {
     return ParticleType.STAR
   }
 
-  public onWindowResize?(width: number, height: number): void {
+  public onWindowResize?(_width: number, _height: number): void {
     // 基础粒子层的窗口大小调整处理
     // 子类可以重写此方法来实现特定的调整逻辑
-    console.log(`ParticleLayer: Window resized to ${width}x${height}`)
   }
 }

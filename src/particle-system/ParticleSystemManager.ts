@@ -52,7 +52,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
 
     // 设置响应式回调
     this.responsiveManager.setOnDeviceChange((device: DeviceType, config: DeviceConfig) => {
-      console.log(`Device changed to ${device}:`, config)
       this.handleDeviceChange(device, config)
     })
 
@@ -82,8 +81,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
   }
 
   public initialize(): void {
-    console.log('Initializing Enhanced Particle System Manager...')
-
     // 清理现有资源
     this.dispose()
 
@@ -91,12 +88,10 @@ export class ParticleSystemManager implements IParticleSystemManager {
     this.adjustQualitySettings()
 
     this.isInitialized = true
-    console.log(`Enhanced Particle System Manager initialized with quality level: ${this.qualityLevel}`)
   }
 
   private checkWebGLCompatibility(): void {
     const report = this.webglDetector.getCompatibilityReport()
-    console.log('WebGL compatibility report:', report)
 
     if (!report.isSupported) {
       console.warn('WebGL not supported, initializing fallback system:', report.errors)
@@ -109,10 +104,7 @@ export class ParticleSystemManager implements IParticleSystemManager {
     }
 
     if (report.recommendedFallback !== 'none') {
-      console.log(`WebGL supported but fallback recommended: ${report.recommendedFallback}`)
-
       // 临时禁用降级逻辑进行调试
-      console.log('DEBUG: Forcing WebGL mode for debugging')
       /*
       // 根据设备性能决定是否使用降级方案
       const deviceConfig = this.responsiveManager.getCurrentConfig()
@@ -122,8 +114,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
       }
       */
     }
-
-    console.log('WebGL compatibility check passed:', report)
   }
 
   private initializeFallbackSystem(report: CompatibilityReport): void {
@@ -153,8 +143,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
       })
 
       this.cssParticleSystem.start()
-
-      console.log(`Fallback CSS particle system initialized with ${particleCount} particles`)
 
       // 显示用户友好的通知
       this.showFallbackNotification(report)
@@ -249,8 +237,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
       minZoom: 0.3,
       maxZoom: 2.5
     })
-
-    console.log('Interaction Manager initialized')
   }
 
   public initializeRenderOptimizer(camera: THREE.PerspectiveCamera): void {
@@ -265,8 +251,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
       cullingMargin: 15,
       maxPoolSize: 30
     })
-
-    console.log('Render Optimizer initialized')
   }
 
   public update(deltaTime: number): void {
@@ -343,7 +327,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
   }
 
   public dispose(): void {
-    console.log('Disposing Enhanced Particle System Manager...')
 
     // 清理交互管理器
     if (this.interactionManager) {
@@ -385,14 +368,11 @@ export class ParticleSystemManager implements IParticleSystemManager {
 
     this.particleLayers = []
     this.isInitialized = false
-
-    console.log('Enhanced Particle System Manager disposed')
   }
 
   public setQuality(level: QualityLevel): void {
     if (this.qualityLevel === level) return
     
-    console.log(`Changing quality level from ${this.qualityLevel} to ${level}`)
     this.qualityLevel = level
     
     // 重新初始化以应用新的质量设置
@@ -414,8 +394,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
     // 添加到场景和管理器
     this.scene.add(layer.points)
     this.particleLayers.push(layer)
-    
-    console.log(`Added particle layer: ${layer.name} (${layer.particleCount} particles)`)
   }
 
   public removeLayer(name: string): void {
@@ -432,8 +410,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
     
     // 从数组中移除
     this.particleLayers.splice(index, 1)
-    
-    console.log(`Removed particle layer: ${name}`)
   }
 
   public updateMouse(x: number, y: number): void {
@@ -463,7 +439,6 @@ export class ParticleSystemManager implements IParticleSystemManager {
   private handlePerformanceWarning(metrics: PerformanceMetrics): void {
     // 自动性能优化
     if (metrics.fps < 25 && this.qualityLevel !== QualityLevel.LOW) {
-      console.log('Auto-optimizing: Reducing quality level due to low FPS')
       const newQuality = this.qualityLevel === QualityLevel.ULTRA ? QualityLevel.HIGH :
                         this.qualityLevel === QualityLevel.HIGH ? QualityLevel.MEDIUM :
                         QualityLevel.LOW
@@ -471,12 +446,11 @@ export class ParticleSystemManager implements IParticleSystemManager {
     }
 
     if (metrics.memoryUsage > 200) {
-      console.log('Auto-optimizing: High memory usage detected')
       // 可以在这里实现内存优化策略
     }
   }
 
-  private handleDeviceChange(device: DeviceType, config: DeviceConfig): void {
+  private handleDeviceChange(_device: DeviceType, config: DeviceConfig): void {
     // 根据设备配置调整质量等级
     this.setQuality(config.qualityLevel)
 
@@ -485,11 +459,8 @@ export class ParticleSystemManager implements IParticleSystemManager {
       const adaptedCount = this.responsiveManager.adaptParticleCount(layer.particleCount)
       if (adaptedCount !== layer.particleCount) {
         // 这里可以实现动态调整粒子数量的逻辑
-        console.log(`Adapting ${layer.name} particles from ${layer.particleCount} to ${adaptedCount}`)
       }
     }
-
-    console.log(`Particle system adapted for ${device} device`)
   }
 
   private handleTouchGesture(gesture: TouchGesture): void {
@@ -508,8 +479,7 @@ export class ParticleSystemManager implements IParticleSystemManager {
         // 处理缩放手势
         if (this.interactionManager) {
           // 可以调整相机缩放或粒子密度
-          const zoomFactor = Math.max(0.5, Math.min(2.0, gesture.scale))
-          console.log(`Touch zoom: ${zoomFactor}`)
+          // TODO: 实现缩放功能
         }
         break
 
@@ -517,13 +487,11 @@ export class ParticleSystemManager implements IParticleSystemManager {
         // 处理点击手势 - 创建点击效果
         if (this.interactionManager) {
           // 触发点击效果
-          console.log(`Touch tap at: ${gesture.currentPosition.x}, ${gesture.currentPosition.y}`)
         }
         break
 
       case 'longpress':
         // 处理长按手势 - 可以用于特殊效果
-        console.log('Touch long press detected')
         break
     }
   }
@@ -728,19 +696,10 @@ export class ParticleSystemManager implements IParticleSystemManager {
 
   private adjustQualitySettings(): void {
     // 根据质量等级调整性能参数
-    const qualityMultipliers = {
-      [QualityLevel.LOW]: 0.3,
-      [QualityLevel.MEDIUM]: 0.6,
-      [QualityLevel.HIGH]: 1.0,
-      [QualityLevel.ULTRA]: 1.5
-    }
-
-    const multiplier = qualityMultipliers[this.qualityLevel]
-    console.log(`Quality multiplier set to: ${multiplier}`)
+    // TODO: 实现基于质量等级的性能调整
   }
 
   private applyUXOptimizations(config: UXOptimizationConfig): void {
-    console.log('Applying UX optimizations:', config)
 
     // 应用动画优化
     if (this.interactionManager) {
