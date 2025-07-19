@@ -134,35 +134,23 @@ export class EnhancedShaders {
       uniform float clickRadii[5];
       uniform int activeClickCount;
       
-      // 多层发光效果
+      // 优化的多层发光效果 - 减少计算复杂度
       vec4 multiLayerGlow(vec2 center, vec3 color, float type, float t) {
         float dist = length(center);
         
-        // 核心光层
-        float coreGlow = 1.0 - smoothstep(0.0, 0.2, dist);
+        // 使用预计算的距离值优化平滑步骤
+        float distSq = dist * dist;
         
-        // 内光层
-        float innerGlow = 1.0 - smoothstep(0.1, 0.4, dist);
+        // 简化的双层发光模型
+        float coreGlow = exp(-distSq * 25.0); // 核心光层，使用指数衰减
+        float outerGlow = exp(-distSq * 6.25); // 外层光，使用指数衰减
         
-        // 外光层
-        float outerGlow = 1.0 - smoothstep(0.3, 0.5, dist);
+        // 优化的类型调整 - 减少分支
+        float typeMultiplier = 1.0 + type * 0.5;
+        float pulseEffect = sin(t * (8.0 + type * 4.0)) * 0.3 + 0.7;
         
-        // 根据粒子类型调整发光
-        if (type == 1.0) { // 超新星
-          coreGlow *= 2.0 + sin(t * 8.0) * 0.5;
-          innerGlow *= 1.5;
-        } else if (type == 2.0) { // 脉冲星
-          float pulse = sin(t * 12.0) * 0.5 + 0.5;
-          coreGlow *= 1.5 + pulse;
-          innerGlow *= 1.2;
-        }
-        
-        // 组合光层
-        float totalGlow = coreGlow * 0.6 + innerGlow * 0.3 + outerGlow * 0.1;
-        
-        // 科技感脉冲效果
-        float techPulse = sin(t * 3.0 + dist * 10.0) * 0.1 + 0.9;
-        totalGlow *= techPulse;
+        // 组合光层 - 简化计算
+        float totalGlow = (coreGlow * 0.7 + outerGlow * 0.3) * typeMultiplier * pulseEffect;
         
         return vec4(color, totalGlow);
       }
@@ -182,28 +170,29 @@ export class EnhancedShaders {
         return vec4(finalColor, finalAlpha);
       }
       
-      // 能量光环效果
+      // 优化的能量光环效果 - 增强真实感
       vec4 energyHalo(vec2 center, vec3 color, float type, float t) {
         float dist = length(center);
         
-        // 基础光环
+        // 基于粒子类型的不同光环效果
         float halo = 0.0;
         
-        // 多重光环
-        for (int i = 0; i < 3; i++) {
-          float ringPos = 0.2 + float(i) * 0.1;
-          float ringWidth = 0.05 + sin(t + float(i)) * 0.02;
-          float ring = 1.0 - smoothstep(ringPos - ringWidth, ringPos + ringWidth, dist);
-          halo += ring * (1.0 - float(i) * 0.3);
+        if (type == 1.0) { // 超新星 - 强烈的冲击波效果
+          float shockwave = sin(dist * 20.0 - t * 8.0) * 0.5 + 0.5;
+          halo = exp(-dist * 8.0) * shockwave * 2.0;
+        } else if (type == 2.0) { // 脉冲星 - 旋转的射电束
+          float angle = atan(center.y, center.x);
+          float beam = sin(angle * 2.0 + t * 15.0) * 0.5 + 0.5;
+          halo = exp(-dist * 12.0) * beam * 1.5;
+        } else if (type == 3.0) { // 星云 - 柔和的扩散光
+          halo = exp(-dist * 3.0) * (0.8 + sin(t * 2.0) * 0.2);
+        } else { // 普通恒星 - 传统的衍射光环
+          float stellarHalo = exp(-dist * 10.0);
+          float twinkle = sin(t * 5.0 + dist * 15.0) * 0.3 + 0.7;
+          halo = stellarHalo * twinkle * 0.6;
         }
         
-        // 旋转光环
-        float angle = atan(center.y, center.x);
-        float rotation = t * 2.0;
-        float spiralHalo = sin(angle * 4.0 + rotation) * 0.5 + 0.5;
-        halo *= spiralHalo;
-        
-        return vec4(color, halo * 0.3);
+        return vec4(color, halo * 0.4);
       }
 
       // 点击波动效果

@@ -10,6 +10,7 @@ import { WebGLDetector, type CompatibilityReport } from './compatibility/WebGLDe
 import { CSSParticleSystem } from './compatibility/CSSParticleSystem'
 import { UXOptimizer } from './optimization'
 import type { UXOptimizationConfig, UXMetrics } from './optimization'
+import { DeepSpaceLayer } from './layers/DeepSpaceLayer'
 
 export class ParticleSystemManager implements IParticleSystemManager {
   public scene: THREE.Scene

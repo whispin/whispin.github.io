@@ -5,6 +5,7 @@ import { ParticleSystemManager } from './particle-system/ParticleSystemManager'
 import { ForegroundLayer } from './particle-system/layers/ForegroundLayer'
 import { MidgroundLayer } from './particle-system/layers/MidgroundLayer'
 import { BackgroundLayer } from './particle-system/layers/BackgroundLayer'
+import { DeepSpaceLayer } from './particle-system/layers/DeepSpaceLayer'
 
 import { SimpleParticleSystem } from './particle-system/simple/SimpleParticleSystem'
 import { errorHandler, ErrorSeverity } from './utils/ErrorHandler'
@@ -319,7 +320,11 @@ const createNewParticleSystem = () => {
 
     particleSystemManager.initialize()
 
-    // 创建远景层（先添加，在最后面渲染）
+    // 创建深空背景层（最先添加，在最远处渲染）
+    const deepSpaceLayer = new DeepSpaceLayer()
+    particleSystemManager.addLayer(deepSpaceLayer)
+
+    // 创建远景层
     const backgroundLayer = new BackgroundLayer()
     particleSystemManager.addLayer(backgroundLayer)
 
