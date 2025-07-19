@@ -5,7 +5,7 @@ import { ParticleSystemManager } from './particle-system/ParticleSystemManager'
 import { ForegroundLayer } from './particle-system/layers/ForegroundLayer'
 import { MidgroundLayer } from './particle-system/layers/MidgroundLayer'
 import { BackgroundLayer } from './particle-system/layers/BackgroundLayer'
-import { SimpleParticleTest } from './particle-system/test'
+
 import { SimpleParticleSystem } from './particle-system/simple/SimpleParticleSystem'
 import { errorHandler, ErrorSeverity } from './utils/ErrorHandler'
 import { ColorSystem } from './particle-system/utils/ColorSystem'
@@ -17,13 +17,18 @@ const currentPath = ref('C:\\Users\\whispin')
 const cursorVisible = ref(true)
 const isTyping = ref(false)
 
+// 拖拽状态
+const isDragging = ref(false)
+const terminalPosition = ref({ x: 0, y: 0 })
+const dragOffset = ref({ x: 0, y: 0 })
+
 // Three.js 相关
 const threeContainer = ref<HTMLElement>()
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
 let renderer: THREE.WebGLRenderer
 let particleSystemManager: ParticleSystemManager
-let simpleParticleTest: SimpleParticleTest
+
 let simpleParticleSystem: SimpleParticleSystem
 let animationId: number | undefined
 let mouse = { x: 0, y: 0 }
@@ -182,8 +187,7 @@ const initThreeJS = () => {
     // 创建简单的粒子系统
     createSimpleParticleSystem()
 
-    // 创建简单的粒子系统测试
-    createSimpleParticleTest()
+
 
     // 创建新的模块化粒子系统
     createNewParticleSystem()
@@ -301,16 +305,7 @@ const createSimpleParticleSystem = () => {
   }
 }
 
-// 创建简单的粒子系统测试
-const createSimpleParticleTest = () => {
-  
-  try {
-    simpleParticleTest = new SimpleParticleTest(scene)
-    simpleParticleTest.create()
-  } catch (error) {
-    console.error('Error creating simple particle test:', error)
-  }
-}
+
 
 // 创建新的增强粒子系统
 const createNewParticleSystem = () => {
@@ -397,10 +392,7 @@ const animate = () => {
           simpleParticleSystem.update(deltaTime)
           simpleParticleSystem.updateMouse(mouse.x, mouse.y)
         }
-        
-        if (simpleParticleTest) {
-          simpleParticleTest.update(time)
-        }
+
       }
     } catch (error) {
       errorHandler.handleParticleSystemError(error as Error, 'Animation Loop Update')
@@ -529,11 +521,88 @@ onUnmounted(() => {
     simpleParticleSystem.dispose()
   }
 
-  if (simpleParticleTest) {
-    simpleParticleTest.dispose()
+
+  window.removeEventListener('resize', onWindowResize)
+  
+  // 清理拖拽事件监听器
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+})
+
+// 拖拽功能实现
+const startDragging = (event: MouseEvent) => {
+  isDragging.value = true
+  
+  // 获取当前终端容器位置
+  const terminalContainer = event.currentTarget as HTMLElement
+  const rect = terminalContainer.closest('.terminal-container')?.getBoundingClientRect()
+  
+  if (rect) {
+    // 计算鼠标相对于终端容器左上角的偏移量
+    dragOffset.value = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    }
   }
   
-  window.removeEventListener('resize', onWindowResize)
+  // 添加全局事件监听器
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+  
+  // 防止文本选择
+  event.preventDefault()
+}
+
+const handleMouseMove = (event: MouseEvent) => {
+  if (!isDragging.value) return
+  
+  // 计算新位置
+  const newX = event.clientX - dragOffset.value.x
+  const newY = event.clientY - dragOffset.value.y
+  
+  // 获取视窗尺寸
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  
+  // 终端窗口尺寸（根据CSS中的设置）
+  const terminalWidth = Math.min(800, viewportWidth * 0.9)
+  const terminalHeight = Math.min(600, viewportHeight * 0.9)
+  
+  // 边界检测
+  const minX = 0
+  const maxX = viewportWidth - terminalWidth
+  const minY = 0
+  const maxY = viewportHeight - terminalHeight
+  
+  // 限制在边界内
+  terminalPosition.value = {
+    x: Math.max(minX, Math.min(maxX, newX)),
+    y: Math.max(minY, Math.min(maxY, newY))
+  }
+}
+
+const handleMouseUp = () => {
+  isDragging.value = false
+  
+  // 移除全局事件监听器
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+}
+
+// 计算终端容器的样式
+const terminalContainerStyle = computed(() => {
+  return {
+    position: 'fixed' as const,
+    left: `${terminalPosition.value.x}px`,
+    top: `${terminalPosition.value.y}px`,
+    transform: terminalPosition.value.x === 0 && terminalPosition.value.y === 0 
+      ? 'translate(-50%, -50%)' 
+      : 'none',
+    ...(terminalPosition.value.x === 0 && terminalPosition.value.y === 0 && {
+      left: '50%',
+      top: '50%'
+    })
+  }
 })
 
 // 打字机效果
@@ -1369,13 +1438,13 @@ const showHistory = async () => {
 
     
     <!-- 终端容器 -->
-    <div class="terminal-container">
+    <div class="terminal-container" :style="terminalContainerStyle">
       <!-- 终端窗口 -->
       <div class="terminal-window">
         <!-- 标题栏 -->
-        <div class="terminal-header">
+        <div class="terminal-header" @mousedown="startDragging" :class="{ 'dragging': isDragging }">
           <span>whispin Terminal v2.0</span>
-          <div class="window-controls">
+          <div class="window-controls" @mousedown.stop>
             <div class="control minimize"></div>
             <div class="control maximize"></div>
             <div class="control close"></div>
@@ -1493,6 +1562,7 @@ const showHistory = async () => {
   height: 600px;
   max-width: 90vw;
   max-height: 90vh;
+  transition: transform 0.1s ease-out;
 }
 
 /* 终端窗口 */
@@ -1516,17 +1586,36 @@ const showHistory = async () => {
   align-items: center;
   color: black;
   font-size: 14px;
+  cursor: move;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.terminal-header:hover {
+  background: rgba(220, 220, 220, 0.9);
+}
+
+.terminal-header.dragging {
+  background: rgba(180, 180, 180, 0.9);
+  cursor: grabbing;
 }
 
 .window-controls {
   display: flex;
   gap: 8px;
+  pointer-events: auto;
 }
 
 .control {
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.control:hover {
+  opacity: 0.8;
 }
 
 .minimize { background: #ffbd2e; }
